@@ -1,0 +1,56 @@
+# Keep the build context lean. store/models (9GB) is mounted read-only at runtime.
+.git
+reports
+# v5 鍵衛生: Fernet 秘密鍵をイメージレイヤに焼き込まない (配布=鍵流出・全配備同一鍵を防ぐ)。
+# コンテナは起動時に CYNOVELA_SECRET_KEY env または volume 上の secret.key を使う (config.py)。
+store/secret.key
+**/secret.key
+store/models
+store/logs
+store/backups
+# ga-close-v3 PartA (2026-07-27): アップロード保管領域は廃止。万一ツリーに残っても
+# イメージに焼き込まないよう二重の守りとして除外する。
+store/uploads
+store/server.pid
+**/__pycache__
+**/*.pyc
+._*
+**/._*
+.DS_Store
+**/.DS_Store
+.deepeval
+_artifacts
+node_modules
+tests/__snapshots__
+# v3 最適化(挙動不変): ランタイム未使用の検証用DBコピー・キャッシュをビルドコンテキストから除外。
+# コンテナは /app/store/db/demo.db (copy-up) を使うため db-standalone/db-container は不要。
+store/db-standalone
+store/db-container
+# Phase 3 ビルド衛生(finding #4): demo.db の WAL/SHM/journal を焼き込まない。
+# ビルド時に稼働中サーバが書込中だと不整合 WAL が baked され、PVC 展開時に SQLite 破損する
+# (Phase 2 で k3s abrupt pod-kill 後に再現)。本体 demo.db のみ焼き、副ファイルは除外する。
+store/db/*.db-wal
+store/db/*.db-shm
+store/db/*-journal
+**/*.db-wal
+**/*.db-shm
+.hypothesis
+.pytest_cache
+.git
+.ruff_cache
+# slim-20260718: ランタイム未使用のため除外 (docs はコード参照0件を grep 実証済み。
+# /docs ヒットは Swagger URL・docstring 例のみでディレクトリ読取ではない)
+tests
+docs
+# V3.5.0 Stage C: 死蔵バックアップを image に焼き込まない(COPY . /app 対策)。
+# 本ツリーには現状 *.bak は 0 件だが、将来の混入を防ぐ防御的除外(挙動不変)。
+*.bak
+*.bak*
+**/*.bak
+**/*.bak*
+_oss-rc-artifacts
+_oss-rc-backups
+.venv-oss
+.env
+.env.*
+!\.env.example

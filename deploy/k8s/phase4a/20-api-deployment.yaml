@@ -1,0 +1,95 @@
+# Phase 4a (k3d load): API Deployment — backend=postgres + pgvector + redis でステートレス化。
+#   関係層=Postgres / ベクター=pgvector / uploads=コンテナ層(揮発・load スモーク用)。
+#   RWO SQLite PVC を持たない => 複数ノードへ topologySpread で分散可能（Phase 3 の物理的前提を利用）。
+#   モデル(bge-m3/reranker)はノードに bind-mount した HF キャッシュを read-only 参照。
+#   secret.key は Secret cynovela-secret から env で共有（API/worker/seed 同一鍵）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cynovela
+  namespace: cynovela
+  labels: { app: cynovela }
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: cynovela }
+  template:
+    metadata:
+      labels: { app: cynovela }
+    spec:
+      # nonroot-20260922: run as the image's fixed non-root user (Containerfile APP_UID/APP_GID=10001).
+      #   fsGroup only takes effect on volume types that support ownership management (not hostPath);
+      #   the read-only hostPath volumes below must therefore be world-readable on the node
+      #   (dirs o+rx, files o+r) — render.py enforces that for the directories it creates.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      # 2 レプリカを 2 ノードへ 1 つずつ分散（pseudo-multinode の実証）。
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels: { app: cynovela }
+      containers:
+        - name: cynovela
+          # DD-CYN-0115 Phase5: 現ソースで作り直したイメージへ入れ替え (旧 ga-20260720 は温存)
+          image: localhost/cynovela-hansolo:dd0116h
+          imagePullPolicy: Never
+          # nonroot-20260922: no privilege escalation, no capabilities (port 8765 is unprivileged).
+          #   readOnlyRootFilesystem is intentionally NOT set: the app writes runtime state into the
+          #   container layer (/app/store/{db,vector,backups,logs,server.pid}) and /tmp (page renders,
+          #   exports). Making the root filesystem read-only needs emptyDir volumes for those paths first.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          # --demo は role 切替デモWSが Postgres に既存のため冪等 no-op（_seed_role_switch_demo がスキップ）。
+          command:
+            - /bin/sh
+            - -c
+            - exec python server.py --demo --mode text --port 8765 --lan --allow-subnet 10.0.0.0/8 --allow-subnet 172.16.0.0/12 --allow-subnet 192.168.0.0/16
+          ports:
+            - { name: http, containerPort: 8765 }
+          env:
+            - name: CYNOVELA_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: cynovela-secret, key: secret_key } }
+            # DD-CYN-0115 M-10: Pod 内時計の文字化がずれないよう機材の時間帯を渡す (姉妹系統の DD-CYN-0086 の K8s 読み替え)
+            - { name: TZ, value: "Asia/Tokyo" }
+          volumeMounts:
+            - { name: config, mountPath: /app/cynovela.yaml, subPath: cynovela.yaml }
+            - { name: models, mountPath: /app/store/models, readOnly: true }
+            # DD-CYN-0115 R-2: 取り込みフォルダ。ノード側 /var/lib/cynovela-ingest (k3d bind) を
+            # Pod 内の安定パス /app/ingest へ。roots は /app/ingest/<name> で機材に依らず解ける。
+            - { name: ingest, mountPath: /app/ingest, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /, port: 8765 }
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 48   # bge-m3 + reranker のロードに最大 ~8 分を許容
+          livenessProbe:
+            httpGet: { path: /, port: 8765 }
+            initialDelaySeconds: 300
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests: { cpu: "500m", memory: "2Gi" }
+            limits: { memory: "6Gi" }
+      volumes:
+        - name: config
+          configMap: { name: cynovela-config }
+        - name: models
+          hostPath: { path: /var/lib/cynovela-models/models, type: Directory }
+        # DD-CYN-0115 R-2: 取り込みフォルダ (両ノードへ同一の k3d bind があるため hostPath で共有できる)
+        - name: ingest
+          hostPath: { path: /var/lib/cynovela-ingest, type: Directory }
+        # ga-close-v3 PartA (2026-07-27): uploads の共有 bind を廃止。
+        # そもそもアップロード受け口を撤去し、アプリ内部に資料の写しを持たない形にしたため、
+        # 「受け口Podに置いた写しを処理Podから読めない」という構造的な失敗ごと無くなった。

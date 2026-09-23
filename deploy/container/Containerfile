@@ -1,0 +1,72 @@
+# settlement-allforms — Cynovela container (full source build, 4 fixes incl. lite-boot + PyJWT)
+# Build context = repo root.  store/models is NOT copied (9GB) — mount it read-only at runtime.
+# demo.db + store/vector ARE copied so a fresh named volume is seeded on first run (copy-up).
+ARG BASE_IMAGE=python:3.12-slim
+FROM ${BASE_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    ANONYMIZED_TELEMETRY=False \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
+WORKDIR /app
+
+# 1) deps layer (cached unless requirements change). spacy model URLs need network at BUILD time.
+# slim-20260718: apt(ビルド用ツールチェーン)→pip→purge を単一レイヤへ統合。
+#  - torch は CPU wheel の取得先 (download.pytorch.org/whl/cpu) を明示して先行インストールし、
+#    PyPI 版 Linux wheel が連鎖させる NVIDIA CUDA/Triton 一式 (約3.9GiB) の取得を止める。
+#    このコンテナ (arm64 Linux VM) では CUDA は実行され得ない。バージョン制約は requirements.txt と同一。
+#  - build-essential/gcc/g++ (ソースビルド用) は pip 完了後に purge し、最終レイヤに残さない。
+#  - site-packages の __pycache__/*.pyc を同一レイヤで削除 (再生成可能なキャッシュ)。
+ARG REQUIREMENTS_FILE=requirements.txt
+COPY ${REQUIREMENTS_FILE} /app/requirements.txt
+ARG APT_UPGRADE=0
+RUN apt-get update && if [ "$APT_UPGRADE" = 1 ]; then apt-get upgrade -y; fi && apt-get install -y --no-install-recommends \
+        build-essential gcc g++ \
+        libgomp1 zlib1g-dev libjpeg-dev \
+        curl ca-certificates \
+ && pip install --upgrade pip \
+ && pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.0,<3.0" \
+ && pip install -r /app/requirements.txt \
+ && apt-get purge -y build-essential gcc g++ zlib1g-dev libjpeg-dev linux-libc-dev \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/* \
+ && find /usr/local/lib/python3.12 -depth -type d -name __pycache__ -exec rm -rf {} + \
+ && find /usr/local/lib/python3.12 -name '*.pyc' -delete
+
+# 2) app source (.containerignore excludes store/models, .git, reports, caches)
+COPY . /app
+
+# 3) non-root runtime user (nonroot-20260922).
+#  - Fixed uid/gid 10001: above the range distributions hand to interactive accounts (1000-9999),
+#    so it never aliases a real host account on hostPath mounts; below nobody (65534); and stable
+#    across rebuilds so volume ownership set on a node stays valid. The Kubernetes manifests pin
+#    the same value (runAsUser/runAsGroup/fsGroup) — keep them in sync with APP_UID/APP_GID.
+#  - Only /app/store (runtime state: db, vector, backups, logs, server.pid, generated keys) and the
+#    user's home are chowned. The application code under /app stays root-owned/read-only for the
+#    runtime user; the OSS source candidate ships no store/ tree, so this chown touches only the
+#    empty directories created here (no layer duplication). A full-tree build that bakes demo data
+#    duplicates only that small store/ subtree.
+#  - /app/store/models and /app/ingest are mount points for read-only volumes; they are created so
+#    the paths exist (and are traversable) even when a runtime mounts nothing there.
+#  - Bytecode is compiled once here: the runtime user cannot write __pycache__ under root-owned
+#    /app, and Python would otherwise silently recompile on every start.
+ARG APP_UID=10001
+ARG APP_GID=10001
+RUN groupadd --gid "${APP_GID}" cynovela \
+ && useradd --uid "${APP_UID}" --gid "${APP_GID}" --home-dir /home/cynovela --create-home \
+        --shell /usr/sbin/nologin cynovela \
+ && mkdir -p /app/store/db /app/store/vector /app/store/backups /app/store/logs /app/store/models /app/ingest \
+ && chown -R "${APP_UID}:${APP_GID}" /app/store /home/cynovela \
+ && python -m compileall -q /app
+
+EXPOSE 8765
+
+# MODE overridable: docker run -e MODE=lite ...
+ENV MODE=text \
+    HOME=/home/cynovela
+# Numeric USER so an orchestrator can verify "non-root" from the image config alone (runAsNonRoot).
+USER 10001:10001
+# --lan binds 0.0.0.0; --allow-subnet opens the container/pod network to the API guard.
+ENTRYPOINT ["/bin/sh", "-c", "exec python server.py --demo --mode \"$MODE\" --port 8765 --lan --allow-subnet 10.0.0.0/8 --allow-subnet 172.16.0.0/12 --allow-subnet 192.168.0.0/16"]

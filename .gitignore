@@ -1,0 +1,89 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+test-results/
+*.log
+!reports/stage2/*.log
+*.bak*
+outputs/
+eval/results/
+.claude/scheduled_tasks.lock
+.env.local
+.local/
+runtime/
+logs/
+evidence/
+*.dump
+*.backup
+
+# === auto-commit 除外ルール (2026-05-12追加) ===
+v11-mock/
+cynovela-mock/
+v11-chromadb/
+.claude/worktrees/
+test_data/
+
+# v13: 配布パッケージ用ディレクトリ・ランタイム成果物（git管理外）
+# release/v1.0.0-alpha: root の models/ db/ のみ除外 (store/db/ は別、negation 有効化のため)
+/models/
+/db/
+.coverage
+data/chroma/
+.DS_Store
+data/*.db
+
+# === alpha-ga-final (2026-05-24): 新規 untracked の reports / .claude 系を以後追加しない ===
+# (既に tracked のファイルはこの追加では untrack されない)
+reports/
+.claude/
+
+# ランタイムデータ（コミット対象外）
+store/db/*.db
+store/chromadb/**
+store/db/tenants/*.db
+store/vector/default/**
+store/vector/demo/**
+store/vector/tenants/**
+# ga-close-v3 PartA (2026-07-27): アップロード保管領域は廃止。ツリーに復活させないための守り。
+# data/uploads は 2026-06 に store/uploads へ移された旧保管領域。残骸を追跡下に戻さない。
+store/uploads/**
+data/uploads/**
+store/backups/**
+store/logs/**
+store/secret.key
+store/ingest-roots.json
+store/k3d-*-ips.env
+# part6-20260726: 通行証(JWT)の署名鍵。金庫鍵と同じくリポジトリに入れない。
+store/db/jwt/secret.key
+store/models
+store/models/**
+# ただし .gitkeep / README.md はディレクトリ構造維持のため tracked
+!store/db/.gitkeep
+!store/db/tenants/README.md
+!store/chromadb/.gitkeep
+!store/vector/default/.gitkeep
+!store/vector/tenants/README.md
+!store/backups/.gitkeep
+!store/logs/.gitkeep
+# 開発成果物
+reports/
+archive/
+.pre-commit-config.yaml
+store/demo.db
+cynovela.db
+data/cynovela.db
+
+# v3: verification runtime DBs (per-form isolated copies, not code)
+store/db-standalone/
+store/db-container/
+._*
+**/._*
+store/server.pid
+store/db/*.db-shm
+store/db/*.db-wal
+tools/dist-initial-credentials.local
+
+# Isolated OSS RC state and evidence (never commit credentials or database dumps)
+_oss-rc-artifacts/
+_oss-rc-backups/
+.venv-oss/

@@ -1,0 +1,192 @@
+server:
+  host: 0.0.0.0
+  port: 8765
+  log_level: INFO
+  cors_origins:
+  - http://localhost:8765
+  - http://127.0.0.1:8765
+llm:
+  provider: lmstudio
+  base_url: http://localhost:1234
+  api_key: ''
+  model: ''
+  max_concurrent: 3
+  timeout_seconds: 120
+rag:
+  strategy: hybrid_bm25
+  default_n_results: 5
+  confidence_threshold: 0.4
+  vector_weight: 0.7
+  bm25_weight: 0.3
+  reranker_enabled: true
+  reranker_url: null
+  citation_enabled: true
+  mmr_enabled: true
+  mmr_lambda: 0.7
+  mmr_fetch_k: 20
+  parent_child_enabled: true
+  child_chunk_size: 256
+  child_chunk_overlap: 32
+  parent_chunk_size: 1000
+  hybrid_method: rrf
+  rrf_k: 60
+  multi_query_enabled: true
+  multi_query_count: 3
+  crag_enabled: true
+  crag_max_loops: 1
+  hyde_enabled: false
+  adaptive_enabled: true
+  adaptive_threshold: 2.0
+  agentic_max_loops: 3
+circuit_breaker:
+  enabled: true
+  failure_threshold: 3
+  recovery_timeout_seconds: 30
+ui:
+  default_rag_display_mode: normal
+notifications:
+  smtp:
+    enabled: false
+    host: smtp.gmail.com
+    port: 587
+    username: ''
+    password: ''
+    from_address: ''
+    to_addresses: []
+    notify_on:
+    - scan_completed
+    - scan_error
+    - circuit_breaker_opened
+# ga-finish-sync-20260727 (Part1 同送): 再ランクを外の口 (Mac Accelerator Service) へ出す
+# 経路をコードへ入れた。ただし berth の既定は従来どおり本体内 (cross_encoder) のままとする。
+# 理由: (1) berth のツリーは MAS 本体 (姉妹系統の mas/) を同梱しておらず、外の口は運用側で
+#       別途立てるもの。既定で外へ向けると口が居ない環境で毎回 接続試行→退避 になる。
+#   (2) 姉妹系統の既定値 host.containers.internal は podman コンテナ用の名前で、k3d Pod 内では
+#       解決できない。K8s から Mac ホストへ届くアドレスは gvproxy ゲートウェイの数値表記で、
+#       deploy/k8s/phase4a/apply-phase4a.sh が LLM 宛先に使っている 127.0.0.1 と同型。
+# 外の口へ切り替える場合は device と base_url を次のように与える (新環境変数は不要):
+#   device: external_accelerator
+#   base_url: http://127.0.0.1:18850    # K8s Pod から Mac ホストへ。ホスト直起動なら http://127.0.0.1:18850
+# 口へ届かないときは重みがあれば本体内で再ランク、無ければ再ランクなしで素通しする
+# (どちらもログ1行 + 設定画面 > Reranker に状態表示)。
+reranker:
+  provider: cross_encoder
+  model: BAAI/bge-reranker-v2-m3
+  base_url: ''
+  api_key: ''
+  top_n: 5
+classifier:
+  provider: rule_based
+  api_url: ''
+  api_key: ''
+pii_mode: standard
+# fixall-B4 20260602: 初期 admin 認証 (env 非依存経路)。
+# admin_initial_password を指定すると初回 seed 時にその PW を使用し must_change_password=0。
+# 未指定 (空/コメント) なら起動時にランダム生成し、平文を起動ログ + 標準出力へ1回表示する。
+# env CYNOVELA_ADMIN_INITIAL_PASSWORD が設定されていればそちらが最優先 (従来互換)。
+auth:
+  admin_initial_password: ''
+  # DD-CYN-0115 M-3 (姉妹系統の DD-CYN-0070 N-4 と同じ振る舞い): 閲覧者の初期の合言葉。
+  # 空のままだと初回起動時に乱数が使われ、コンソール出力に1回だけ表示される。
+  # 姉妹系統の同梱既定と同じ値 (must_change 設計の初期値)。
+  viewer_initial_password: 'demo1234'
+vector_store:
+  provider: chromadb
+  path: ''
+  qdrant_url: http://localhost:6333
+  qdrant_api_key: ''
+embedding:
+  provider: local
+  model: BAAI/bge-m3
+  base_url: ''
+  api_key: ''
+models:
+  embedding:
+    path: ''
+    name: BAAI/bge-m3
+  reranker:
+    path: ''
+    name: BAAI/bge-reranker-v2-m3
+chunking:
+  chunk_size: 300
+  chunk_overlap: 50
+  contextual: false
+logging:
+  level: INFO
+  request_id: true
+features:
+  metadata_engine: true
+  data_guardrails: true
+  data_sync: true
+  audit_log: true
+  pipeline_visualization: true
+  session_history: true
+  feedback: true
+sync:
+  auto_poll: false
+  poll_interval_seconds: 3600
+  auto_publish: true
+  notify_on_change: true
+execution:
+  llm_provider: local
+  llm_base_url: http://localhost:1234
+  openrouter_api_key: ''
+  claude_api_key: ''
+  multimodal: false
+  vlm_model: ''
+paths:
+  data_dir: ./store
+  db:
+    clean: db/cynovela.db
+    demo: db/demo.db
+  vector:
+    default: vector/default/chroma
+    demo: vector/demo/chroma
+  secret_key: secret.key
+  # ga-close-v3 PartA (2026-07-27): uploads: を廃止。アップロード受け口の撤去に伴い
+  # アプリ内部の資料保管領域そのものを無くした (この鍵はどのコードからも読まれていなかった)。
+  backups: backups
+  logs: logs
+  models: models
+
+# masking-parallel (PDF公開の伏字並列化): NER 伏字を遊休コアで並列実行する。
+#   出力は逐次と完全一致（各チャンクの伏字は決定的純関数）。埋め込み/リランクのモデル指定
+#   (上の embedding: / models:) には一切影響しない独立セクション。
+# parallelism: 0=自動(min(コア数-1, 4))。1=逐次(従来挙動と等価)。N=最大ワーカ数。
+# parallel_min_chunks: このチャンク数未満は逐次（ワーカ起動コストの方が高い小規模を回避）。
+# DD-CYN-0115 H-1: standalone は 0（自動）のままでよい（メモリ上限が無い）。メモリ上限
+#   2Gi の worker Pod では spawn の子が上限を突き、OOM→再配送→またOOM の循環になるため、
+#   K8s では apply-phase2.sh / apply-phase4a.sh の ConfigMap 生成部が 1（逐次）を注入する。
+masking:
+  parallelism: 0
+  parallel_min_chunks: 64
+database:
+  # Phase A: データ層バックエンド選択。既定 sqlite = SQLite(関係) + Chroma(ベクター)。
+  # Phase B: postgres = pgvector(ベクター) を有効化。standalone は既定 sqlite を維持する。
+  # K8s では ConfigMap (cynovela-config) が本ファイルを差し替えて backend: postgres を与える。
+  backend: sqlite
+  postgres:
+    host: 127.0.0.1
+    port: 5433
+    dbname: cynovela
+    user: cynovela
+    # 秘密はマウントしたファイル経由（env 非使用）。K8s では Secret を mount する。
+    password_file: ''
+policy:
+  # Phase G: OPA/Rego ポリシー (policies/cynovela.rego)。opa_binary 空なら PATH/既定から自動探索、
+  # 無ければ同一規則の純 Python フォールバックで評価する。
+  opa_binary: ''
+queue:
+  # Phase 2: Worker+Redis 分離。standalone 既定は無効（false）= 挙動不変。
+  # enabled=true にすると Publish/取り込みの起動点が「ジョブを Redis に積む」へ切替わり、
+  # worker（server.py --mode worker）が消費する。接続は本セクション駆動（新規 env 非使用）。
+  enabled: false
+  url: redis://127.0.0.1:6379/0
+  key_prefix: cynovela
+  # DD-CYN-0115 H-1: 60→300。実用サイズの資料は伏字/埋め込みで数分かかる。期限が短いと
+  #   まだ動いている worker のジョブを reaper が奪い、取り込みが完走しない循環になる。
+  #   K8s 側 (apply-phase2.sh / apply-phase4a.sh) の上書き値も 300 に揃えてある。
+  visibility_timeout: 300  # 秒。worker クラッシュ(hb停止)後この秒数で別 worker が再配送
+  heartbeat_interval: 5    # 秒。worker が処理中に打つ生存証跡の間隔
+  reserve_timeout: 5       # 秒。BRPOPLPUSH のブロック秒
+  max_redeliver: 3         # 回。これを超えた再配送は捨てる(publish は failed 記録)＝毒ジョブ対策

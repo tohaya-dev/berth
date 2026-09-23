@@ -1,0 +1,12 @@
+Cynovela p25 デモドキュメント
+
+このファイルは p25-col の Document Lineage / 再Publish 動作確認用のサンプルです。
+ディスク上に永続的に保持されるため、テスト完了後に GUI から再Publishしても
+「処理可能なファイルがありません」エラーは発生しません。
+
+Cynovela の主要機能:
+- ロールベースACL (admin / sales / finance / engineer)
+- PII Guardrail (mask / exclude_from_rag / log_only)
+- メタデータエンジン (doc_type / sensitivity / department)
+- Adaptive RAG (Basic / Agentic 自動切替)
+- Contextual Chunking (Anthropic 提案手法)

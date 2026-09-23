@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cynovela — AI Data Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/frontend/style.css?v=dd0115-20260815">
+<!-- P2 §1/§6 (Hotfix-1): Chart.js + plugins をローカル vendor ディレクトリから配信 -->
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/vendor/chartjs-plugin-annotation.min.js"></script>
+<script src="/static/vendor/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* ===== i18n CSS Class Switching (P1 §3) =====
+   2026-05-04: 最小4+4ルールのみ。プレフィックスなしの display 指定は除去。
+   <body class="lang-ja"> または <body class="lang-en"> のいずれか必須
+   (setLang() が動的に切替。HTML 既定値で初期 FOUC 防止)。 */
+body.lang-en .ja       { display: none !important; }
+body.lang-en .ja-block { display: none !important; }
+body.lang-ja .en       { display: none !important; }
+body.lang-ja .en-block { display: none !important; }
+
+/* P1 §5-5: RAG Chat 全画面モード */
+.page-chat.chat-fullscreen-mode {
+  position: fixed !important;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9999;
+  background: #fff;
+}
+
+/* Hotfix-4: Policy matrix collapsed-by-default */
+.policy-matrix-section { margin: 14px 0; }
+.policy-matrix-summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.policy-matrix-summary::-webkit-details-marker { display: none; }
+.policy-matrix-summary::before {
+  content: '▶';
+  display: inline-block;
+  font-size:16px;
+  color: #94a3b8;
+  transition: transform 0.15s;
+}
+.policy-matrix-section[open] .policy-matrix-summary::before { transform: rotate(90deg); }
+.policy-matrix-section[open] .policy-matrix-summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.policy-matrix-section[open] #policy-matrix-host {
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+.summary-hint {
+  font-size:16px;
+  color: #94a3b8;
+  font-weight: 400;
+  margin-left: auto;
+}
+
+/* R2: popup-mode CSS は削除済み (chat-popup ルート廃止により不要) */
+
+/* UX-3: WS / Collection / Publish / RAG Chat flow guide (collapsible) */
+.ws-flow-guide {
+  margin: 8px 8px 12px 8px;
+  border: none;
+}
+.ws-flow-summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size:17px;
+  font-weight: 600;
+  color: #64748b;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.ws-flow-summary::-webkit-details-marker { display: none; }
+.ws-flow-summary::after {
+  content: '▶';
+  margin-left: auto;
+  font-size:16px;
+  color: #94a3b8;
+  transition: transform 0.15s;
+}
+.ws-flow-guide[open] .ws-flow-summary::after { transform: rotate(90deg); }
+.ws-flow-summary:hover { background: #e2e8f0; }
+.ws-flow-steps {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+.ws-flow-guide .flow-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: 6px; cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  border: 1px solid transparent;
+}
+.ws-flow-guide .flow-step:hover { background: #e2e8f0; }
+.ws-flow-guide .flow-step.step-active {
+  background: #eff6ff; border-color: #bfdbfe;
+}
+.ws-flow-guide .step-icon { font-size: 16px; flex-shrink: 0; }
+.ws-flow-guide .step-text { display: flex; flex-direction: column; min-width: 0; }
+.ws-flow-guide .step-title {
+  font-weight: 600; font-size:17px; color: #1a2332; line-height: 1.2;
+}
+.ws-flow-guide .step-desc {
+  font-size:16px; color: #64748b; line-height: 1.3;
+}
+.ws-flow-guide .flow-arrow {
+  text-align: center; color: #94a3b8; font-size:16px;
+  padding: 0; margin-left: 22px;
+}
+
+/* UX-2: Header user display + role badge */
+.user-display {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size:17px; padding: 0; background: transparent; border: none;
+}
+.user-display .user-name {
+  font-weight: 600; color: #1a2332;
+}
+.user-display .user-role {
+  padding: 2px 8px; border-radius: 10px; font-size:16px;
+  font-weight: 600; line-height: 1.4;
+}
+.role-admin  { background: #fef3c7; color: #d97706; }
+.role-viewer { background: #f0fdf4; color: #16a34a; }
+
+/* P5 Block 1: Version Compare panes */
+.compare-pane {
+  border-radius: 8px; border: 2px solid #e2e8f0; overflow: hidden;
+}
+.pane-a { border-color: #6366f1; }
+.pane-b { border-color: #16a34a; }
+.pane-header {
+  padding: 6px 12px; font-weight: 700; font-size:16px;
+}
+.pane-a .pane-header { background: #eef2ff; color: #6366f1; }
+.pane-b .pane-header { background: #f0fdf4; color: #16a34a; }
+.compare-answer  { padding: 10px 12px; font-size:17px; min-height: 80px; line-height: 1.6; }
+.compare-sources { padding: 6px 12px; border-top: 1px solid #f1f5f9; display: flex; gap: 6px; flex-wrap: wrap; }
+.compare-sources .source-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;
+  padding: 2px 8px; font-size:16px;
+}
+.compare-loading {
+  text-align: center; padding: 20px; color: #94a3b8; font-size:17px;
+}
+
+/* P5 Block 3: Handoff banner (chat top) */
+.handoff-banner {
+  background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px;
+  padding: 10px 14px; margin: 8px 16px; font-size:17px; color: #9a3412;
+}
+.handoff-banner strong { color: #7c2d12; }
+.handoff-banner .handoff-summary {
+  margin: 6px 0; color: #78350f; font-size:17px; line-height: 1.5;
+}
+.handoff-banner .handoff-actions { display: flex; gap: 6px; }
+
+/* P4 Block 4: Alert banner */
+.alert-banner-container { position: sticky; top: 0; z-index: 50; }
+.alert-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; font-size:17px; font-weight: 500;
+}
+.alert-red    { background: #fef2f2; color: #dc2626; border-bottom: 1px solid #fecaca; }
+.alert-yellow { background: #fffbeb; color: #d97706; border-bottom: 1px solid #fde68a; }
+.alert-blue   { background: #eff6ff; color: #2563eb; border-bottom: 1px solid #bfdbfe; }
+.alert-dismiss {
+  margin-left: auto; background: none; border: none;
+  cursor: pointer; font-size: 16px; opacity: 0.6;
+  color: inherit;
+}
+.alert-dismiss:hover { opacity: 1; }
+
+/* P3 §4 §5: Dashboard tab (Performance / RAG Quality) collapsible */
+.dashboard-tab { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; }
+.dashboard-tab-summary {
+  cursor: pointer; font-weight: 700; font-size:18px; color: #1e293b;
+  list-style: none; display: flex; align-items: center; gap: 8px;
+}
+.dashboard-tab-summary::-webkit-details-marker { display: none; }
+.dashboard-tab-summary::before {
+  content: '▶'; font-size:16px; color: #94a3b8; transition: transform 0.15s;
+}
+.dashboard-tab[open] .dashboard-tab-summary::before { transform: rotate(90deg); }
+
+/* P3 §4: Disk grid */
+.disk-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px; margin-top: 6px;
+}
+.disk-item {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;
+  font-size:16px; color: #64748b;
+}
+.disk-item strong { font-size: 16px; color: #1e293b; }
+.sovereignty-card .sovereignty-value {
+  font-size:18px; padding: 6px 0;
+}
+.sovereignty-card .sovereignty-value strong { color: #16a34a; margin-left: 6px; }
+.sovereignty-badge {
+  display: inline-block; padding: 4px 10px; border-radius: 12px;
+  background: #dcfce7; color: #166534; font-size:17px; font-weight: 600;
+  margin-top: 4px;
+}
+
+/* P2 §6: Cost verdict block */
+.cost-verdict {
+  padding: 8px 12px; border-radius: 6px; font-size:18px; font-weight: 600;
+  margin: 6px 0 10px 0;
+}
+.cost-verdict.cost-local { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.cost-verdict.cost-cloud { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+/* P2 §5: My Dashboard area */
+.my-dashboard-area {
+  background: #fff7ed; border: 1px solid #fdba74; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 14px;
+}
+.my-dashboard-header {
+  font-weight: 700; color: #9a3412; font-size:18px; margin-bottom: 8px;
+}
+.pinned-clone { margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+
+/* P2 §1-§5: Widget card / pin button */
+.widget-card { position: relative; }
+.widget-card .widget-header {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; color: #1e293b; font-size:18px;
+  margin-bottom: 8px;
+}
+.widget-card .pin-btn {
+  margin-left: auto; background: transparent; border: none;
+  font-size: 16px; cursor: pointer; opacity: 0.55;
+  padding: 0 4px; line-height: 1;
+}
+.widget-card .pin-btn:hover { opacity: 1; }
+
+/* P2 §3: Pipeline health */
+.health-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.health-cell {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  font-size:17px;
+}
+.health-indicator {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: #94a3b8; flex-shrink: 0;
+}
+.health-indicator.health-ok      { background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.18); }
+.health-indicator.health-warn    { background: #e97316; box-shadow: 0 0 0 3px rgba(233,115,22,0.18); }
+.health-indicator.health-error   { background: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.18); }
+.health-indicator.health-pending { background: #94a3b8; }
+
+/* P2 §2: Audit log summary */
+.audit-summary-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px; border-bottom: 1px solid #f1f5f9; font-size:17px;
+}
+.audit-summary-row:last-child { border-bottom: none; }
+.audit-summary-row .audit-icon { width: 22px; flex-shrink: 0; text-align: center; }
+.audit-summary-row .audit-text { flex: 1; min-width: 0; color: #334155; }
+.audit-summary-row .audit-text strong { color: #1e293b; }
+.audit-summary-row .audit-time { color: #94a3b8; font-size:16px; flex-shrink: 0; }
+.audit-summary-empty {
+  padding: 10px; color: #94a3b8; font-size:17px; text-align: center;
+}
+
+/* P2 §4: Auto-sync inline toggle */
+.sync-row.sync-enabled {
+  background-color: #f0fdf4;
+  border-left: 3px solid #16a34a;
+}
+.toggle-switch {
+  position: relative; display: inline-block; width: 38px; height: 20px;
+  vertical-align: middle;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #cbd5e1; border-radius: 20px;
+  transition: 0.2s;
+}
+.toggle-slider::before {
+  position: absolute; content: ""; height: 14px; width: 14px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%;
+  transition: 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: #16a34a; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* P1 §10: Scope widget */
+.scope-widget {
+  background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;
+  padding: 6px 14px; margin-bottom: 14px; font-size:17px;
+}
+.scope-widget > summary {
+  cursor: pointer; font-weight: 600; color: #1e293b; padding: 4px 0;
+  list-style: revert;
+}
+.scope-widget > summary:hover { color: #2563eb; }
+.scope-content { padding: 6px 0 8px 0; }
+.scope-table { width: 100%; border-collapse: collapse; font-size:17px; }
+.scope-table td {
+  padding: 6px 10px; border-top: 1px solid #e2e8f0; vertical-align: top;
+}
+.scope-table td:first-child { color: #64748b; width: 38%; }
+
+/* P1 §8: Demo scenarios bar */
+.demo-scenarios {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 12px; font-size:17px;
+}
+.demo-scenarios .demo-label { font-weight: 600; color: #9a3412; }
+.demo-scenarios .demo-btn { background: #fff; border: 1px solid #fdba74; color: #9a3412; }
+.demo-scenarios .demo-btn:hover { background: #ffedd5; }
+
+/* P1 §7 / Bugfix-3,6: Compliance checklist (collapsed-by-default) */
+.compliance-widget {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 6px 10px; margin-bottom: 14px; font-size:17px;
+}
+.compliance-widget .compliance-collapsible > summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0; font-weight: 600; color: #1e293b;
+}
+.compliance-widget .compliance-collapsible > summary::-webkit-details-marker { display: none; }
+.compliance-widget .compliance-collapsible > summary::before {
+  content: '▶'; font-size:16px; color: #94a3b8; transition: transform 0.15s;
+}
+.compliance-widget .compliance-collapsible[open] > summary::before { transform: rotate(90deg); }
+.compliance-widget .compliance-hint { color: #94a3b8; font-weight: 400; font-size:16px; }
+.compliance-items { list-style: none; padding-left: 18px; margin: 6px 0 0 0; }
+.compliance-items li {
+  padding: 3px 0; display: flex; gap: 8px; align-items: center;
+  line-height: 1.45;
+}
+.compliance-items .compliance-icon { width: 18px; flex-shrink: 0; text-align: center; }
+.compliance-items .compliance-text { flex: 1; }
+.compliance-items li.compliance-ok { color: #166534; }
+.compliance-items li.compliance-warn { color: #92400e; }
+
+/* P1 §5-9: 質問テンプレート (カテゴリ分けアコーディオン) */
+.chat-templates .tpl-cat {
+  display: block; margin-bottom: 4px;
+}
+.chat-templates .tpl-cat-summary {
+  cursor: pointer; font-size:17px; font-weight: 600; color: #475569;
+  padding: 2px 6px; border-radius: 3px; user-select: none;
+}
+.chat-templates .tpl-cat-summary:hover { background: #f1f5f9; }
+.chat-templates .tpl-cat-items {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 4px 14px;
+}
+
+/* P1 §5-6: Code block toolbar */
+.code-toolbar {
+  position: absolute; top: 4px; right: 4px;
+  display: flex; gap: 4px; align-items: center;
+  font-size:16px; line-height: 1; opacity: 0.85;
+}
+.code-toolbar .code-lang {
+  background: rgba(15, 23, 42, 0.55); color: #e2e8f0;
+  padding: 2px 6px; border-radius: 3px; font-family: monospace;
+}
+.code-toolbar button {
+  background: rgba(15, 23, 42, 0.7); color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 3px;
+  padding: 2px 8px; cursor: pointer; font-size:16px;
+}
+.code-toolbar button:hover { background: rgba(15, 23, 42, 0.9); }
+
+/* Language switcher button */
+.lang-switcher { display: inline-flex; gap: 2px; align-items: center; margin-left: 8px; }
+.lang-switcher .lang-btn {
+  background: transparent; border: 1px solid #cbd5e1; border-radius: 4px;
+  padding: 2px 6px; font-size:18px; cursor: pointer; line-height: 1.0;
+  filter: grayscale(0.5);
+}
+.lang-switcher .lang-btn:hover { background: #eff6ff; filter: none; }
+.lang-switcher .lang-btn.active-lang { background: #dbeafe; filter: none; border-color: #3b82f6; }
+
+/* BETA-pagination: 共通ページャ */
+.pager-bar{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 4px;gap:8px;flex-wrap:wrap;margin:8px 0}
+.pager-info{font-size:13px;color:#64748b}
+.pager-controls{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pager-btn,.pager-num{padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;
+  background:#fff;cursor:pointer;font-size:13px;font-family:inherit}
+.pager-num.active{background:#1e293b;color:#fff;border-color:#1e293b}
+.pager-btn:disabled{opacity:.35;cursor:not-allowed}
+.pager-limit-sel{padding:4px 6px;border-radius:6px;border:1px solid #e2e8f0;font-size:13px}
+.pager-ellipsis{padding:0 4px;color:#64748b;font-size:13px}
+
+/* APIキー入力欄 マスク表示・変更ロック */
+.apikey-wrap{display:flex;align-items:center;gap:6px}
+.apikey-wrap .form-input{flex:1}
+.apikey-masked{color:#64748b;letter-spacing:0.15em;background:#f1f5f9}
+.apikey-change-btn{white-space:nowrap;padding:6px 12px;font-size:13px}
+
+/* F1-3: テーブル横スクロール */
+.table-wrap          { overflow-x: auto; }
+#col-list            { overflow-x: auto; }
+#catalog-table-host  { overflow-x: auto; }
+#pii-detection-list  { overflow-x: auto; }
+
+/* F1-4: ダッシュボード数値フォントサイズ */
+.card-value-lg {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-1, #1a2332);
+}
+
+/* F1-5: WSモーダル */
+#ws-detail-panel.ws-detail-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  max-width: 860px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 20px 24px;
+}
+/* fix-s3-2: 構造化回答モード選択ボタン */
+.answer-mode-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.answer-mode-btn:hover { background: #e2e8f0; }
+.answer-mode-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+</style>
+</head>
+<body class="lang-ja">
+
+<!-- GUI修正4: 全幅バナーは廃止。代わりに #topbar 右端に小さな #mode-badge を表示する -->
+
+
+<!-- ── Login Modal ── -->
+<div id="login-modal" class="modal-overlay active">
+  <div class="modal login-modal">
+    <div class="login-logo" style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:48px;line-height:1;margin-bottom:6px;">🗄️</div>
+      <div style="font-size:22px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;">Cynovela</div>
+      <div style="font-size:17px;color:#64748b;margin-top:2px;">
+        <span class="en">AI Data Pipeline</span><span class="ja">AI データパイプライン</span>
+      </div>
+    </div>
+    <h2><span class="en">Sign in to Cynovela</span><span class="ja">Cynovela にログイン</span></h2>
+    <p id="login-sub" class="login-sub">
+      <span class="en">Select a user</span><span class="ja">ユーザーを選択してください</span>
+    </p>
+    <div id="login-users" class="user-cards"></div>
+    <!-- allinone Phase D #1: 折りたたみ(<details>/<summary>)を撤去し、ログインフォームを常時表示にする -->
+    <div id="login-form-details" style="margin-top:14px">
+      <div style="font-size:17px;color:var(--text-3);margin-bottom:6px;font-weight:600">
+        <span class="en">Sign in with username / password</span><span class="ja">ユーザー名／パスワードでログイン</span>
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <input id="login-username" class="form-input" type="text" placeholder="Username / ユーザー名" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <input id="login-password" class="form-input" type="password" placeholder="Password / パスワード" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLoginByPassword()">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLoginByPassword()">
+        <span class="en">Login</span><span class="ja">ログイン</span>
+      </button>
+      <div id="login-error" style="color:var(--error);font-size:17px;margin-top:8px;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Prereq Modal ── -->
+<div id="prereq-modal" class="modal-overlay">
+  <div class="modal prereq-modal">
+    <div class="prereq-icon">⚠️</div>
+    <h3 id="prereq-title">
+      <span class="en">Prerequisites not met</span><span class="ja">前提条件が揃っていません</span>
+    </h3>
+    <p id="prereq-message"></p>
+    <div class="prereq-actions">
+      <button id="prereq-navigate" class="btn btn-primary"></button>
+      <button onclick="closePrereqModal()" class="btn btn-secondary">
+        <span class="en">Close</span><span class="ja">閉じる</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm Modal ── -->
+<div id="confirm-modal" class="modal-overlay">
+  <div class="modal confirm-modal">
+    <div class="confirm-icon" id="confirm-icon">⚠️</div>
+    <h3 id="confirm-title"></h3>
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button id="confirm-ok" class="btn btn-primary">OK</button>
+      <button id="confirm-cancel" class="btn btn-secondary" onclick="closeConfirmModal()"><span class="en">Cancel</span><span class="ja">キャンセル</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Generic Form Modal ── -->
+<div id="form-modal" class="modal-overlay">
+  <div class="modal form-modal">
+    <div class="modal-header">
+      <h3 id="form-modal-title"></h3>
+      <button class="modal-close" onclick="closeFormModal()">✕</button>
+    </div>
+    <div id="form-modal-body"></div>
+    <div class="modal-footer">
+      <button id="form-modal-submit" class="btn btn-primary"></button>
+      <button class="btn btn-secondary" onclick="closeFormModal()"><span class="en">Cancel</span><span class="ja">キャンセル</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── File Preview Modal ── -->
+<div id="preview-modal" class="modal-overlay">
+  <div class="modal preview-modal">
+    <div class="modal-header">
+      <h3 id="preview-title"><span class="en">File Preview</span><span class="ja">ファイルプレビュー</span></h3>
+      <button class="modal-close" onclick="closePreviewModal()">✕</button>
+    </div>
+    <div id="preview-categories" class="preview-categories"></div>
+    <pre id="preview-content" class="preview-content"></pre>
+  </div>
+</div>
+
+<!-- ── App Shell ── -->
+<div id="app-shell" style="display:none">
+
+  <!-- Header -->
+  <header id="topbar" class="topbar">
+    <div class="logo">
+      <div class="logo-icon">📊</div>
+      <span class="logo-text">Cyno<span class="logo-dot">vela</span></span>
+    </div>
+    <div class="topbar-div"></div>
+    <span class="topbar-subtitle">AI Data Pipeline</span>
+    <div class="topbar-sep"></div>
+    <!-- GUI修正4: --mock 起動時のみ表示される控えめなバッジ -->
+    <span id="mode-badge" class="mode-badge" style="display:none;"></span>
+    <div id="user-info" class="role-pill"></div>
+    <!-- P1 §3: 言語切り替えボタン (英語デフォルト) -->
+    <div class="lang-switcher">
+      <button onclick="setLang('en')" id="btn-lang-en"
+              title="Switch to English" class="lang-btn active-lang">🇺🇸</button>
+      <button onclick="setLang('ja')" id="btn-lang-ja"
+              title="Switch to Japanese / 日本語に切り替え" class="lang-btn">🇯🇵</button>
+    </div>
+    <!-- Hotfix-3: About / Scope & Limitations -->
+    <button class="btn btn-ghost btn-sm" onclick="showAboutModal()" title="About Cynovela / Cynovela について">ℹ️</button>
+    <button class="btn btn-ghost btn-sm" id="btn-lock-screen" onclick="window._showLockScreen()" title="画面をロック / Lock screen">🔒</button>
+    <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Logout / ログアウト">🚪</button>
+  </header>
+
+  <!-- P4 Block 4: Alert banners (sticky, 60s polling) -->
+  <div id="alert-banner-container" class="alert-banner-container"></div>
+
+  <!-- Hotfix-3: About / Scope & Limitations modal -->
+  <div id="about-modal" class="modal-overlay" onclick="if(event.target===this)closeAboutModal()">
+    <div class="modal" style="max-width:540px;">
+      <h3 style="margin:0 0 10px 0;display:flex;align-items:center;gap:8px;">
+        <span>📊 Cynovela</span>
+        <button class="modal-close" onclick="closeAboutModal()" style="margin-left:auto;">✕</button>
+      </h3>
+      <div style="font-size:17px;color:#475569;line-height:1.6;margin-bottom:14px;">
+        <span class="en">An on-premise RAG pipeline for internal documents — built for governance, observability, and education.</span><span class="ja">社内ドキュメントを対象としたオンプレ RAG パイプライン。ガバナンス・可観測性・教育を目的としたツールです。</span>
+      </div>
+      <div class="about-scope-section">
+        <h4 style="margin:0 0 8px 0;font-size:18px;">
+          <span class="en">ℹ️ Scope &amp; Limitations</span><span class="ja">ℹ️ 適用範囲と制限</span>
+        </h4>
+        <table class="scope-table">
+          <tr>
+            <td><span class="en">Intended use</span><span class="ja">用途</span></td>
+            <td><strong>PoC / Demo / Education</strong></td>
+          </tr>
+          <tr>
+            <td><span class="en">Recommended scale</span><span class="ja">想定規模</span></td>
+            <td><span class="en">Up to ~5,000 docs, ~10 users</span><span class="ja">〜5,000 件 / 〜10 ユーザー</span></td>
+          </tr>
+          <tr>
+            <td><span class="en">Vector store</span><span class="ja">ベクターストア</span></td>
+            <td>ChromaDB (local)</td>
+          </tr>
+        </table>
+      </div>
+      <div style="text-align:right;margin-top:14px;">
+        <button class="btn btn-primary" onclick="closeAboutModal()">
+          <span class="en">Close</span><span class="ja">閉じる</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="layout">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <!-- UX-3: WS/Collection/Publish/Chat フローガイド (default 折りたたみ) -->
+      <details class="ws-flow-guide" id="ws-flow-guide">
+        <summary class="ws-flow-summary">
+          🗺️
+          <span class="en">How it works</span><span class="ja">使い方の流れ</span>
+        </summary>
+        <div class="ws-flow-steps">
+          <div class="flow-step" data-page="workspaces" onclick="navigate('workspaces')">
+            <span class="step-icon">🏢</span>
+            <div class="step-text">
+              <span class="step-title"><span class="en">Workspace</span><span class="ja">ワークスペース</span></span>
+              <span class="step-desc"><span class="en">Access boundary &amp; policy scope</span><span class="ja">アクセス境界・ポリシー適用単位</span></span>
+            </div>
+          </div>
+          <div class="flow-arrow">▼</div>
+          <div class="flow-step" data-page="collections" onclick="navigate('collections')">
+            <span class="step-icon">📁</span>
+            <div class="step-text">
+              <span class="step-title"><span class="en">Collection</span><span class="ja">コレクション</span></span>
+              <span class="step-desc"><span class="en">Document bundle by topic</span><span class="ja">トピック別ドキュメント束</span></span>
+            </div>
+          </div>
+          <div class="flow-arrow">▼</div>
+          <div class="flow-step" data-flow-key="publish" onclick="navigate('collections')">
+            <span class="step-icon">📤</span>
+            <div class="step-text">
+              <span class="step-title"><span class="en">Publish</span><span class="ja">公開</span></span>
+              <span class="step-desc"><span class="en">Vectorize → searchable</span><span class="ja">ベクトル化 → 検索可能に</span></span>
+            </div>
+          </div>
+          <div class="flow-arrow">▼</div>
+          <div class="flow-step" data-page="chat" onclick="navigate('chat')">
+            <span class="step-icon">💬</span>
+            <div class="step-text">
+              <span class="step-title"><span class="en">RAG Chat</span><span class="ja">RAG Chat</span></span>
+              <span class="step-desc"><span class="en">Ask questions on docs</span><span class="ja">公開済み文書に質問</span></span>
+            </div>
+          </div>
+        </div>
+      </details>
+      <!-- F2-1: ナビゲーション再構成 -->
+      <div class="sidebar-section">
+        <a class="nav-item" data-page="overview" onclick="navigate('overview')">
+          <span class="nav-icon">📊</span><span class="nav-label">Overview</span>
+        </a>
+      </div>
+      <div class="sidebar-sep"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-label"><span class="en">Data Management</span><span class="ja">データ管理</span></div>
+        <a class="nav-item" data-page="sources" onclick="navigate('sources')">
+          <span class="nav-icon">📁</span><span class="nav-label">Data Sources</span>
+          <span class="nav-badge" id="badge-src"></span>
+        </a>
+        <a class="nav-item" data-page="workspaces" onclick="navigate('workspaces')">
+          <span class="nav-icon">🏢</span><span class="nav-label">Workspaces</span>
+          <span class="nav-badge" id="badge-ws"></span>
+        </a>
+        <a class="nav-item" data-page="catalog" onclick="navigate('catalog')">
+          <span class="nav-icon">📂</span><span class="nav-label">Data Catalog</span>
+        </a>
+        <a class="nav-item" data-page="collections" onclick="navigate('collections')">
+          <span class="nav-icon">📦</span><span class="nav-label">Collections</span>
+          <span class="nav-badge" id="badge-col"></span>
+        </a>
+        <a class="nav-item" data-page="chat" onclick="navigate('chat')">
+          <span class="nav-icon">💬</span><span class="nav-label">RAG Chat</span>
+        </a>
+      </div>
+      <div class="sidebar-sep"></div>
+      <!-- fix-mba-lmstudio-and-menu-20260618: 空の Governance 見出しを撤去（section ごと非表示）。
+           guardrails 導線は Admin 節「ポリシー管理」に集約。data-page="guardrails" 要素は
+           applyRoleRestrictions(state.js) の querySelector 対象のため DOM 保持。
+           data-hide-for-viewer 撤去＋display:none で全ロール非表示（admin で復活しない）。 -->
+      <div class="sidebar-section" style="display:none">
+        <a class="nav-item" data-page="guardrails" onclick="navigate('guardrails')" style="display:none">
+          <span class="nav-icon">🛡️</span><span class="nav-label">Guardrails</span>
+        </a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label"><span class="en">Admin</span><span class="ja">管理</span></div>
+        <a class="nav-item" data-page="audit" onclick="navigate('audit')">
+          <span class="nav-icon">📋</span><span class="nav-label"><span class="en">Audit Log</span><span class="ja">監査ログ</span></span>
+        </a>
+        <a class="nav-item" data-page="settings" onclick="navigate('settings')">
+          <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+        </a>
+        <!-- holocron-finish 2-1: ポリシー管理を 管理(Admin) セクションから到達可能化（設計=Settings/Admin へ移設）。
+             独立ガードレールタブ（Governance 節・display:none）は廃止のまま維持。管理セクションは viewer 非表示のため本項も admin 限定。
+             data-page を付けない → applyRoleRestrictions の guardrails 強制非表示（querySelector 単一・最初の Governance 節要素のみ）に巻き込まれない。 -->
+        <a class="nav-item" id="nav-admin-policy" onclick="navigate('guardrails')" title="ガードレール / ポリシー管理">
+          <span class="nav-icon">🛡️</span><span class="nav-label"><span class="en">Policies</span><span class="ja">ポリシー管理</span></span>
+        </a>
+      </div>
+    </nav>
+
+    <!-- 2026-05-04: サイドバードラッグハンドル (mousedown でリサイズ開始) -->
+    <div id="sidebar-resizer" title="Drag to resize / ドラッグで幅を変更"></div>
+
+    <!-- Main Content -->
+    <main id="main">
+
+      <!-- Overview -->
+      <div id="page-overview" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">📊</span></div>
+          <div>
+            <div class="page-title">
+              <span class="en">Dashboard</span><span class="ja">ダッシュボード</span>
+              <button class="help-btn" onclick="showHelp('overview')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">Cynovela AI Data Pipeline —
+              <span class="en">overall status</span><span class="ja">全体概況</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="sovereignty-banner" style="display:none;align-items:center;gap:12px;padding:10px 16px;background:#f0fdf4;border:2px solid #22c55e;border-radius:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span style="font-size:20px;">🛡️</span>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#166534;"><span class="en">Data sovereignty protected — 0 bytes sent externally</span><span class="ja">データ主権保護中 — 外部送信 0 bytes</span></div>
+            <div style="font-size:11px;color:#166534;opacity:.8;"><span class="en">All inference and vector search run entirely within the local environment.</span><span class="ja">すべての推論・ベクトル検索がローカル環境内で完結しています</span></div>
+          </div>
+          <div style="margin-left:auto;text-align:right;">
+            <div id="sovereignty-provider" style="font-size:13px;font-weight:500;color:#166534;">✅ Local Only</div>
+            <div id="sovereignty-model" style="font-size:11px;color:#166534;opacity:.8;">—</div>
+          </div>
+        </div>
+
+        <!-- P2 §5: My Dashboard area (ピン留めウィジェットのクローン置場) -->
+        <div id="my-dashboard" class="my-dashboard-area" style="display:none">
+          <div class="my-dashboard-header">
+            <span class="en">📌 My Dashboard</span><span class="ja">📌 マイダッシュボード</span>
+          </div>
+          <!-- ピン留めされたウィジェットのクローンが JS で挿入される -->
+        </div>
+
+        <!-- Hotfix-3: Scope & Limitations は About モーダルへ移動済み (Overview から除去) -->
+
+        <!-- PHASE UI-6: クイックスタートボタン -->
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:4px;">
+          <button class="btn btn-primary" data-role-min="admin" onclick="openQuickStartModal()"
+                  style="padding:10px 18px;font-size:18px;font-weight:600;
+                         background:linear-gradient(135deg,#2563eb,#7c3aed);
+                         border:none;color:#fff;border-radius:8px;cursor:pointer;
+                         box-shadow:0 2px 6px rgba(37,99,235,0.25);">
+            ⚡ <span class="en">Quick Start</span><span class="ja">クイックスタート</span>
+          </button>
+          <!-- latestlog-dualbtn-20260627: 起動ボタンの右に「最新ログ」常設入口(一本で両対応)。
+               走行中(同一ブラウザ判定)なら進捗・ログへ再アタッチ、非走行なら直近1件の完了記録を再表示(来歴一覧ではない)。
+               出どころ= IngestViz.showLatestOrReattach() → 走行中: reattachLive()(既存 /api/jobs ポーリング再利用) /
+               非走行: showLatest() → localStorage(cynovela_ingest_history) 先頭。非admin含む全ユーザー可・フロント完結。 -->
+          <button class="btn btn-sm" onclick="IngestViz.showLatestOrReattach()"
+                  style="padding:8px 14px;font-size:14px;border-radius:8px;cursor:pointer;"
+                  title="Show the most recent ingest log / 直近の取り込みログを表示">
+            🧾 <span class="en">Latest log</span><span class="ja">最新ログ</span>
+          </button>
+        </div>
+        <!-- GUI修正8 #05: ダッシュボード v2 -->
+        <!-- F1-2: System Readiness Bar（「デモ準備完了」バナー）は削除 -->
+        <!-- 5-2: AI Readiness Score（新ダッシュボード Row1 カード1 に統合のため非表示） -->
+        <div id="ai-readiness-host" style="display:none"></div>
+        <!-- 5-3: Cynovela 4 コンポーネントカード（新ダッシュボード Row1 統合のため非表示） -->
+        <div id="pipeline-components" style="display:none"></div>
+        <!-- 5-4: 統計タイル4個（新ダッシュボード Row2 統合のため非表示） -->
+        <div id="stats-grid" class="stat-grid" style="display:none"></div>
+
+        <!-- ===== allinone F1: A6 Trust Console（iframe で隔離・F2 で実データ配線） ===== -->
+        <!-- 旧 dashboard-row1/2/3・category/query/model host は A6 console へ統合。
+             既存 renderer は null-safe(if(!host)return) のため非表示で残しても無害。切断検出のため ID は保持。 -->
+        <div id="dashboard-row1" style="display:none"></div>
+        <div id="dashboard-row2" style="display:none"></div>
+        <div id="dashboard-row3" style="display:none">
+          <div id="category-bar-host"></div><div id="query-trend-host"></div><div id="model-usage-host"></div>
+        </div>
+        <iframe id="a6-frame" src="/frontend/a6-console.html" title="Cynovela Trust Console"
+                style="width:100%;border:0;display:block;min-height:1480px;overflow:hidden;background:transparent;"
+                scrolling="no"></iframe>
+        <script>
+        (function(){
+          var fr=document.getElementById('a6-frame');
+          // Phase G (allinone): コンプラPDF — /api/compliance/report(根拠記録+ガバナンス状態) を
+          // token 付き fetch し別窓で開く（window.print() で PDF 保存）。
+          window.__openCompliancePdf = async function(){
+            try{
+              var tok=(window.API&&API.token)||localStorage.getItem('cynovela_token')||'';
+              var base=(window.API&&API.base)||'';
+              var res=await fetch(base+'/api/compliance/report?days=30',{headers:tok?{'Authorization':'Bearer '+tok}:{}});
+              if(!res.ok){alert('コンプライアンスレポート取得に失敗しました ('+res.status+')');return;}
+              var html=await res.text();
+              var w=window.open('','_blank');
+              if(w){w.document.open();w.document.write(html);w.document.close();}
+              else{var b=new Blob([html],{type:'text/html'});window.open(URL.createObjectURL(b),'_blank');}
+            }catch(e){alert('レポート生成に失敗しました: '+(e&&e.message));}
+          };
+          window.addEventListener('message',function(e){
+            var d=e.data||{}; if(!d.a6) return;
+            if(d.a6==='height' && fr && d.h){ fr.style.height=(d.h+8)+'px'; }
+            else if(d.a6==='exportPdf'){ window.__openCompliancePdf(); }
+            else if(d.a6==='allCats'){ if(typeof navigate==='function')navigate('catalog'); }
+            else if(d.a6==='nav' && d.page){ if(typeof navigate==='function')navigate(d.page); }
+          });
+          // F2 フック: renderOverview から window.__wireA6(summary,...) で iframe.contentWindow.A6.update(...) を呼ぶ
+        })();
+        </script>
+        <!-- ===== A6 Trust Console END ===== -->
+
+        <!-- 5-5: 自動同期セクション (2026-05-04: WS 詳細画面に移動。互換目的で host のみ残す) -->
+        <div id="polling-status-card" style="display:none;"></div>
+
+        <!-- UI-3: パイプラインヘルスは Overview から削除（情報過多のため）-->
+        <div class="widget-card" id="pipeline-health-widget" style="display:none">
+          <div id="pipeline-health-grid"></div>
+        </div>
+
+        <div class="dashboard-row" style="display:none">
+          <!-- P2 §1: カテゴリ分布ドーナツ (既存の cat-bars と並列表示) — 新ダッシュボード Row3 に移行のため非表示 -->
+          <div class="card widget-card" id="category-donut-widget">
+            <div class="widget-header">
+              <span class="en">📊 Category Distribution</span><span class="ja">📊 カテゴリ分布</span>
+              <button class="pin-btn" onclick="togglePin('category-donut-widget')" title="Pin to top / 上部に固定">📍</button>
+            </div>
+            <div id="category-bar-chart" style="padding:8px 16px;"><!-- renderCategoryBarChart()で生成 --></div>
+            <!-- 既存のバーグラフは折りたたみで残す -->
+            <details style="margin-top:8px;">
+              <summary style="cursor:pointer;font-size:16px;color:#64748b;">
+                <span class="en">▸ Bar view (Classifier auto-tags)</span><span class="ja">▸ 棒グラフ表示（Classifier 自動分類）</span>
+              </summary>
+              <div id="cat-bars" style="margin-top:6px;"></div>
+            </details>
+          </div>
+        </div>
+
+        <!-- UI-3: 自己観測レポートUIは現在非表示 (Overview から導線なし・別画面への移動もしていない)。BE の /api/reports/* は API 利用向けに残置。 -->
+        <details class="dashboard-tab" id="reports-tab" style="margin-top:14px;display:none;">
+          <summary class="dashboard-tab-summary">
+            <span class="en">📊 Self-Observation Reports</span><span class="ja">📊 自己観測レポート</span>
+          </summary>
+          <div class="tab-panel" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+            <div class="report-warning"
+                 style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:17px;color:#78350f;">
+              ⚠️
+              <span class="en"><strong>Self-observation log:</strong> Reports are auto-generated by an LLM. Human review is recommended before relying on this content.</span><span class="ja"><strong>自己観察ログ:</strong> レポートは LLM による自動生成です。記載内容を信頼する前に必ず人間によるレビューを行ってください。</span>
+            </div>
+            <div class="report-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="generateReport('monthly')">
+                <span class="en">📅 Monthly Summary</span><span class="ja">📅 月次サマリー</span>
+              </button>
+              <button class="btn btn-sm" onclick="generateReport('poc')">
+                <span class="en">🔬 PoC Results</span><span class="ja">🔬 PoC 結果</span>
+              </button>
+              <button class="btn btn-sm" onclick="generateReport('technical')">
+                <span class="en">⚙️ Technical Health</span><span class="ja">⚙️ 技術サマリー</span>
+              </button>
+            </div>
+            <div id="report-output" class="widget-card" style="display:none;">
+              <div class="report-toolbar" style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px;">
+                <button class="btn btn-sm btn-ghost" onclick="copyReport()">📋 Copy</button>
+                <button class="btn btn-sm btn-ghost" onclick="downloadReport('md')">⬇ MD</button>
+                <button class="btn btn-sm btn-ghost" onclick="downloadReport('txt')">⬇ TXT</button>
+              </div>
+              <div id="report-content" class="report-content"
+                   style="font-size:17px;color:#1e293b;line-height:1.6;white-space:pre-wrap;"></div>
+            </div>
+            <div id="report-history"></div>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- Data Sources -->
+      <div id="page-sources" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">📁</span></div>
+          <div>
+            <div class="page-title">Data Sources
+              <button class="help-btn" onclick="showHelp('sources')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">Scan local folders and extract metadata</span><span class="ja">ローカルフォルダをスキャンしてメタデータを抽出</span>
+            </div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" data-role-min="admin" onclick="showAddSourceModal()">
+              <span class="en">+ Add Source</span><span class="ja">+ ソース追加</span>
+            </button>
+          </div>
+        </div>
+        <!-- UI-8: ドラッグ&ドロップは廃止。 -->
+        <!-- intake-togo-v2-20260705: 入口一元化。取り込み入口は右上「＋ソース追加」（取り込みフォルダ経由）の一つだけ。
+             ga-close-v3 PartX: 上記の撤去で残置されていたブラウザ送信入口の残骸（JS関数 handleFileSelect /
+             uploadFiles / qsExecuteUpload / handleFileDrop / srcSetEntryMode / qsSetEntryMode /
+             _populateUploadWsSelect と、style.css の .upload-zone* / .upload-progress*）を撤去した。
+             画面に入口は無く、対応する JS 関数・スタイル定義も無い。/api/upload の受け口は Agent A の担当。 -->
+        <!-- P1-7: ソースリスト ソート (backend /api/sources?sort=... と連動) -->
+        <div class="source-controls" style="display:flex;gap:8px;margin:8px 0;align-items:center;flex-wrap:wrap;">
+          <select id="source-sort" class="form-input" style="width:180px" onchange="sortSources()">
+            <option value="created_at_desc" data-en="Created (newest)" data-ja="作成日（新しい順）">作成日（新しい順）</option>
+            <option value="created_at_asc" data-en="Created (oldest)" data-ja="作成日（古い順）">作成日（古い順）</option>
+            <option value="name_asc" data-en="Name (A→Z)" data-ja="名前（昇順）">名前（昇順）</option>
+            <option value="name_desc" data-en="Name (Z→A)" data-ja="名前（降順）">名前（降順）</option>
+          </select>
+        </div>
+        <div class="table-wrap"><table id="sources-table"><thead></thead><tbody></tbody></table></div>
+        <div id="source-pager"></div>
+      </div>
+
+      <!-- Workspaces -->
+      <div id="page-workspaces" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">🏢</span></div>
+          <div>
+            <div class="page-title">Workspaces
+              <button class="help-btn" onclick="showHelp('workspaces')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">Manage data access boundaries</span><span class="ja">データアクセスの境界を管理</span>
+            </div>
+          </div>
+          <div class="page-actions">
+            <span id="ws-view-toggle-host"></span>
+            <!-- UX-4: Show archived toggle -->
+            <label class="show-archived-toggle" data-role-min="admin"
+                   style="font-size:17px;color:#475569;display:inline-flex;align-items:center;gap:6px;margin-right:8px;">
+              <input type="checkbox" id="show-archived-ws" onchange="toggleShowArchived(this.checked)">
+              <span class="en">Show archived</span><span class="ja">アーカイブ済みを表示</span>
+            </label>
+            <button class="btn btn-primary" data-role-min="admin" onclick="showCreateWSModal()">
+              <span class="en">+ Create Workspace</span><span class="ja">+ Workspace作成</span>
+            </button>
+          </div>
+        </div>
+        <!-- UI-2: WSリスト ソート・フィルタ -->
+        <div class="ws-controls" style="display:flex;gap:8px;margin:8px 0;align-items:center;flex-wrap:wrap;">
+          <input id="ws-search" type="text" placeholder="🔍 ワークスペース名で検索..." data-ph-en="🔍 Search by workspace name..." data-ph-ja="🔍 ワークスペース名で検索..."
+                 class="form-input" style="flex:1;min-width:200px" oninput="filterWorkspaces()">
+          <select id="ws-sort" class="form-input" style="width:180px" onchange="sortWorkspaces()">
+            <option value="created_desc" data-en="Created (newest)" data-ja="作成日（新しい順）">作成日（新しい順）</option>
+            <option value="created_asc" data-en="Created (oldest)" data-ja="作成日（古い順）">作成日（古い順）</option>
+            <option value="name_asc" data-en="Name (A→Z)" data-ja="名前（昇順）">名前（昇順）</option>
+            <option value="name_desc" data-en="Name (Z→A)" data-ja="名前（降順）">名前（降順）</option>
+            <option value="chunks_desc" data-en="Chunks (most first)" data-ja="チャンク数（多い順）">チャンク数（多い順）</option>
+            <option value="scan_desc" data-en="Last scan (newest)" data-ja="最終スキャン（新しい順）">最終スキャン（新しい順）</option>
+          </select>
+          <select id="ws-filter-status" class="form-input" style="width:160px" onchange="filterWorkspaces()">
+            <option value="" data-en="All" data-ja="すべて">すべて</option>
+            <option value="published" data-en="Has published" data-ja="公開済みあり">公開済みあり</option>
+            <option value="no_collection" data-en="No collection" data-ja="Collection未作成">Collection未作成</option>
+          </select>
+        </div>
+        <div id="ws-pager"></div>
+        <div id="ws-list" class="card-grid"></div>
+
+        <!-- F1-5: WSモーダルオーバーレイ -->
+        <div id="ws-modal-overlay" onclick="closeWsDetail()"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;"></div>
+
+        <!-- F1-5: Workspace詳細パネル（モーダル化済み） -->
+        <div id="ws-detail-panel" class="ws-detail-panel ws-detail-modal" style="display:none;">
+          <div class="ws-detail-header">
+            <h3 id="ws-detail-title" style="margin:0 0 8px 0;">
+              <span class="en">Workspace details</span><span class="ja">Workspace 詳細</span>
+            </h3>
+            <button class="btn btn-sm" onclick="closeWsDetail()">
+              <span class="en">Close</span><span class="ja">閉じる</span>
+            </button>
+          </div>
+          <!-- Beta GA: PDF取り込みモード選択 -->
+          <div id="pdf-mode-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px 0;padding:8px 10px;background:#f8fafc;border-radius:6px;">
+            <label for="ws-pdf-mode" style="font-size:14px;font-weight:600;color:#334155;"><span class="en">PDF ingest mode</span><span class="ja">PDF取り込みモード</span></label>
+            <select id="ws-pdf-mode" onchange="onPdfModeChange(this.value)" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px;">
+              <option value="fast" data-en="Fast (text only)" data-ja="高速（テキストのみ）">高速（テキストのみ）</option>
+              <option value="quality" data-en="High quality (strong on tables; slower processing)" data-ja="高品質（表に強い・処理が重くなります）">高品質（表に強い・処理が重くなります）</option>
+              <option value="vision" data-en="Multimodal (figures/scans supported; much slower)" data-ja="マルチモーダル（図・スキャン対応・処理が大幅に遅くなります）">マルチモーダル（図・スキャン対応・処理が大幅に遅くなります）</option>
+            </select>
+            <div id="pdf-mode-warning" style="display:none;width:100%;font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;line-height:1.5;"></div>
+          </div>
+          <div class="ws-tabs" id="ws-tabs">
+            <button class="ws-tab active" data-tab="files" onclick="switchWsTab('files')">📄 <span class="en">Files</span><span class="ja">ファイル</span></button>
+            <button class="ws-tab" data-tab="chunks" onclick="switchWsTab('chunks')">🧩 Chunks</button>
+            <button class="ws-tab" data-tab="history" onclick="switchWsTab('history')">📋 <span class="en">History</span><span class="ja">履歴</span></button>
+            <button class="ws-tab" data-tab="sync" onclick="switchWsTab('sync')">🔄 <span class="en">Auto-sync</span><span class="ja">自動同期</span></button>
+          </div>
+          <div class="ws-tab-content" id="ws-tab-files" style="display:block;">
+            <div id="ws-files-list" style="font-size:16px;color:var(--text-4)"></div>
+          </div>
+          <div class="ws-tab-content" id="ws-tab-chunks" style="display:none;">
+            <div class="chunk-filter-bar">
+              <button class="chunk-filter-btn active" onclick="filterChunks('all')"><span class="en">All</span><span class="ja">全件</span></button>
+              <button class="chunk-filter-btn" onclick="filterChunks('pii')">🔒 <span class="en">PII Masked</span><span class="ja">PII 置換</span></button>
+              <button class="chunk-filter-btn" onclick="filterChunks('excluded')">🚫 <span class="en">RAG Excluded</span><span class="ja">RAG 除外</span></button>
+            </div>
+            <div id="chunk-list" class="chunk-list"></div>
+          </div>
+          <div class="ws-tab-content" id="ws-tab-history" style="display:none;">
+            <div id="publish-history-list" class="publish-history-list"></div>
+          </div>
+          <div class="ws-tab-content" id="ws-tab-sync" style="display:none;">
+            <div id="ws-sync-panel"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guardrails -->
+      <div id="page-guardrails" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">🛡️</span></div>
+          <div>
+            <div class="page-title">Guardrails
+              <button class="help-btn" onclick="showHelp('guardrails')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">Data protection policies and audit log</span><span class="ja">データ保護ポリシーと監査ログ</span>
+            </div>
+          </div>
+          <!-- F2-1: 監査ログ CSV 出力ボタンは「管理 > 監査ログ」ページに移動済み -->
+        </div>
+        <!-- F2-3: 4セクション構成 -->
+        <!-- セクション1: ガバナンス概況カード -->
+        <div id="guardrails-summary" class="guardrails-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0;"></div>
+
+        <!-- セクション2: ポリシー管理 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;">
+          <h3 style="margin:0;font-size:18px;color:#1e293b;">🛡️ <span class="en">Policy Management</span><span class="ja">ポリシー管理</span></h3>
+          <button class="btn btn-primary btn-sm" data-role-min="admin" onclick="openCreatePolicyModal()">
+            ＋ <span class="en">Create Policy</span><span class="ja">ポリシー作成</span>
+          </button>
+        </div>
+        <div id="guardrail-explainer"></div>
+        <div class="table-wrap"><div id="policies-list"></div></div>
+        <div id="policy-pager"></div>
+
+        <!-- セクション3: ワークスペース保護状況 -->
+        <h3 style="margin:24px 0 8px;font-size:18px;color:#1e293b;">🏢 <span class="en">Workspace Protection Status</span><span class="ja">ワークスペース保護状況</span></h3>
+        <div class="table-wrap"><div id="guardrails-coverage"></div></div>
+
+        <!-- セクション4: 直近の検知イベント -->
+        <h3 style="margin:24px 0 8px;font-size:18px;color:#1e293b;">⚡ <span class="en">Recent Detection Events</span><span class="ja">直近の検知イベント</span></h3>
+        <div id="guardrails-recent-events"></div>
+
+        <!-- コンプライアンスチェックリスト -->
+        <div class="section-card" style="margin-top:16px;">
+          <div class="section-title">🛡️ <span class="en">Compliance Checklist</span><span class="ja">コンプライアンスチェックリスト</span></div>
+          <div id="compliance-checklist"></div>
+        </div>
+      </div>
+
+      <!-- F2-3: ポリシー作成・編集モーダル -->
+      <div id="policy-modal-overlay" onclick="closePolicyModal()"
+           style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;"></div>
+      <div id="policy-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+           z-index:1000;width:90vw;max-width:640px;max-height:80vh;overflow-y:auto;background:#fff;
+           border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:20px 24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 id="policy-modal-title" style="margin:0;font-size:18px;"><span class="en">Create Policy</span><span class="ja">ポリシー作成</span></h3>
+          <button class="btn btn-sm btn-ghost" onclick="closePolicyModal()">✕</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="en">Policy name</span><span class="ja">ポリシー名</span></label>
+          <input id="policy-modal-name" class="form-input" type="text" placeholder="例: 個人情報マスク" data-ph-en="e.g. PII Masking" data-ph-ja="例: 個人情報マスク">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span class="en">Rules (PII type → action)</span><span class="ja">ルール（PII種別 → アクション）</span></label>
+          <div id="policy-modal-rules"></div>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="addPolicyRule()" style="margin-top:6px;">＋ <span class="en">Add rule</span><span class="ja">ルール追加</span></button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">
+            <input type="checkbox" id="policy-modal-active" checked> <span class="en">Enable (active)</span><span class="ja">有効化（active）</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+          <button class="btn btn-ghost btn-sm" onclick="closePolicyModal()"><span class="en">Cancel</span><span class="ja">キャンセル</span></button>
+          <button class="btn btn-primary btn-sm" onclick="savePolicyFromModal()"><span class="en">Save</span><span class="ja">保存</span></button>
+        </div>
+      </div>
+
+      <!-- Collections -->
+      <div id="page-collections" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">📦</span></div>
+          <div>
+            <div class="page-title">Collections
+              <button class="help-btn" onclick="showHelp('collections')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">Manage and publish file groups</span><span class="ja">ファイルグループを管理・Publish</span>
+            </div>
+          </div>
+          <div class="page-actions">
+            <span id="col-view-toggle-host"></span>
+            <button class="btn btn-primary" data-role-min="admin" onclick="showCreateColModal();">
+              <span class="en">+ Create Collection</span><span class="ja">+ Collection作成</span>
+            </button>
+          </div>
+        </div>
+        <!-- UI-6: Collections ソート・フィルタ -->
+        <div class="col-controls" style="display:flex;gap:8px;margin:8px 0;align-items:center;flex-wrap:wrap;">
+          <input id="col-search" type="text" placeholder="🔍 Collection名で検索..." data-ph-en="🔍 Search by collection name..." data-ph-ja="🔍 Collection名で検索..."
+                 class="form-input" style="flex:1;min-width:200px" oninput="filterCollections()">
+          <select id="col-sort" class="form-input" style="width:200px" onchange="sortCollections()">
+            <option value="created_new" selected data-en="Created (newest)" data-ja="作成日（新しい順）">作成日（新しい順）</option>
+            <option value="created_old" data-en="Created (oldest)" data-ja="作成日（古い順）">作成日（古い順）</option>
+            <option value="date_desc" data-en="Published (newest)" data-ja="公開日（新しい順）">公開日（新しい順）</option>
+            <option value="date_asc" data-en="Published (oldest)" data-ja="公開日（古い順）">公開日（古い順）</option>
+            <option value="name_asc" data-en="Name (A→Z)" data-ja="名前（昇順）">名前（昇順）</option>
+            <option value="chunks_desc" data-en="Chunks (most first)" data-ja="チャンク数（多い順）">チャンク数（多い順）</option>
+          </select>
+        </div>
+        <div id="col-list"></div>
+        <div id="col-pager"></div>
+        <!-- Phase 1: Publish完了サマリー -->
+        <div id="publish-result" class="publish-result" style="display:none;">
+          <div class="publish-result-header">
+            <span class="en">✅ Publish complete</span><span class="ja">✅ Publish 完了</span>
+          </div>
+          <ul id="publish-result-lines" class="publish-result-lines"></ul>
+        </div>
+      </div>
+
+      <!-- P5-B: データカタログ -->
+      <div id="page-catalog" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">📂</span></div>
+          <div>
+            <div class="page-title">
+              <span class="en">Data Catalog</span><span class="ja">データカタログ</span>
+              <button class="help-btn" onclick="showHelp('catalog')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">Cross-document view — auto-classified by metadata engine</span><span class="ja">全ドキュメント横断ビュー — メタデータエンジンによる自動分類</span>
+            </div>
+          </div>
+        </div>
+        <div id="catalog-summary"></div>
+        <div id="catalog-filters" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <!-- P2-1: Smart Ingestionカテゴリ別フィルタ + エクスポート -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          <label style="font-size:15px;color:#475569;">📂 <span class="en">Category:</span><span class="ja">カテゴリ:</span></label>
+          <select id="catalog-category-filter" onchange="onCatalogCategoryChange(this.value)"
+                  style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:15px;">
+            <option value="" data-en="All categories" data-ja="全カテゴリ">全カテゴリ</option>
+            <option value="technical_guide" data-en="Technical Guide" data-ja="技術ガイド">技術ガイド</option>
+            <option value="meeting_minutes" data-en="Meeting Minutes" data-ja="会議議事録">会議議事録</option>
+            <option value="incident_report" data-en="Incident Report" data-ja="インシデント報告">インシデント報告</option>
+            <option value="proposal_rfp" data-en="Proposal / RFP" data-ja="提案・RFP">提案・RFP</option>
+            <option value="audit_report" data-en="Audit Report" data-ja="監査レポート">監査レポート</option>
+            <option value="poc_report" data-en="PoC Report" data-ja="PoC レポート">PoC レポート</option>
+            <option value="whitepaper" data-en="Whitepaper" data-ja="ホワイトペーパー">ホワイトペーパー</option>
+            <option value="faq" data-en="FAQ" data-ja="FAQ">FAQ</option>
+            <option value="checklist" data-en="Checklist" data-ja="チェックリスト">チェックリスト</option>
+            <option value="reference" data-en="Reference" data-ja="リファレンス">リファレンス</option>
+            <option value="governance_policy" data-en="Governance Policy" data-ja="ガバナンスポリシー">ガバナンスポリシー</option>
+            <option value="newsletter" data-en="Newsletter" data-ja="ニュースレター">ニュースレター</option>
+            <option value="case_study" data-en="Case Study" data-ja="ケーススタディ">ケーススタディ</option>
+            <option value="other" data-en="Other" data-ja="その他">その他</option>
+          </select>
+          <!-- UI-7: ソート -->
+          <label style="font-size:15px;color:#475569;">↕ <span class="en">Sort:</span><span class="ja">ソート:</span></label>
+          <select id="catalog-sort" onchange="onCatalogSortChange(this.value)"
+                  style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:15px;">
+            <option value="name_asc" data-en="Name (A→Z)" data-ja="名前（昇順）">名前（昇順）</option>
+            <option value="name_desc" data-en="Name (Z→A)" data-ja="名前（降順）">名前（降順）</option>
+            <option value="sensitivity_desc" data-en="Sensitivity (highest first)" data-ja="感度（高い順）">感度（高い順）</option>
+            <option value="accessed_desc" data-en="Last accessed (newest)" data-ja="最終アクセス（新しい順）">最終アクセス（新しい順）</option>
+          </select>
+          <button class="btn btn-sm btn-ghost" onclick="exportDataCatalog('csv')">📥 CSV</button>
+          <button class="btn btn-sm btn-ghost" onclick="exportDataCatalog('json')">📥 JSON</button>
+        </div>
+        <div id="catalog-table-host"></div>
+        <div id="catalog-pager"></div>
+      </div>
+
+      <!-- RAG Chat -->
+      <div id="page-chat" class="page page-chat">
+        <div class="chat-topbar">
+          <span class="chat-title">💬 RAG Chat</span>
+          <button class="help-btn" onclick="showHelp('chat')">?<span class="help-pop"></span></button>
+          <div class="topbar-div"></div>
+          <label>🏢 Workspace:</label>
+          <select id="chat-ws-sel" class="chat-collection-sel" onchange="onChatWSChange()"></select>
+          <span id="chat-policy-badge"></span>
+          <span id="chat-pii-mode-badge" class="chat-pii-mode-badge" style="display:none;" title="個人情報マスキングモード（表示のみ）" data-title-en="PII masking mode (display only)" data-title-ja="個人情報マスキングモード（表示のみ）"></span>
+          <!-- P3-10: セッション履歴 / 新しいチャット / 設定 -->
+          <!-- #B: 📊 統計ボタンはフッターに一本化 (ヘッダーからは削除) -->
+          <!-- P1 §5-5: チャットフォントサイズ + 全画面切替, UX-5: ポップアウト -->
+          <span id="chat-guardrail-banner-inline" class="chat-guardrail-banner-inline" style="display:none;margin-left:8px;"></span>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:12px;">
+            <span style="font-size:15px;color:var(--text-3);">🤖</span>
+            <select id="provider-sel"
+                    onchange="onProviderChange()"
+                    style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:14px;background:#fff;max-width:160px;">
+            </select>
+            <select id="model-sel"
+                    onchange="onModelSelChange()"
+                    style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:14px;background:#fff;max-width:200px;">
+              <option value="">-- モデルを選択 --</option>
+            </select>
+          </div>
+          <div class="chat-controls" style="margin-left:12px;display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="toggleChatFullscreen()" title="Toggle fullscreen / 全画面切替">⛶</button>
+            <button class="btn btn-sm btn-ghost" onclick="showSessionList()" title="Sessions / 履歴">💬</button>
+            <button class="btn btn-sm btn-ghost" onclick="resetCurrentSession()" title="New chat / 新規">✏️</button>
+            <button class="btn btn-sm btn-ghost" onclick="showAppSettings(event)" title="Settings / 設定">⚙️</button>
+          </div>
+          <!-- #04: ACL select は廃止（ユーザーバッジと重複していたため）。
+               item3-3a (2026-05-23): デモロールバーも撤去済。ロールはログインロール基準で
+               一本化、別ロールの確認は別ユーザーでログインし直す運用。 -->
+          <div style="margin-left:auto;"></div>
+        </div>
+        <!-- chat-guardrail-banner はJSから参照されるためDOMに残す・非表示。
+             比較モード(2モデル並列)遺物 model-a-sel / compare-mode-toggle / model-b-sel は撤去済 (UIは v3.5.0 で撤去・到達不能)。 -->
+        <div style="display:none;">
+          <span id="chat-guardrail-banner" class="chat-guardrail-banner-inline"></span>
+        </div>
+        <!-- PHASE UI-7: マルチチャットタブバー -->
+        <div id="chat-tab-bar" style="display:flex;align-items:center;gap:4px;padding:4px 16px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:16px;flex-wrap:nowrap;overflow-x:auto;">
+          <!-- 動的に生成 -->
+        </div>
+        <!-- item3 (2026-05-23 スリム化): 役割切替バー (BLOCK B-2) と回答スタイル誤ラベルバー
+             (FEATURE 3) を全モードから撤去。ロールはログインロール基準で一本化。
+             setDemoRole/setStyleRole 関数は state.js に null-check 付で残置 (governance.js 旧呼出側の
+             安全弁。governance.js 側は別 sub-stage で撤去)。
+             State.demoRole/styleRole と chat 送信 (role_override/style_role) は変えない。
+             スリム化決定 page_id 36694ef8-...814f-... 「ロールはログインロール基準、デモロール切替は
+             デモ専用へ格納」「回答スタイル (厳格度) は撤去せず構造化回答とマージ → 厳格度モード自体は
+             未実装のため本タスクではタッチしない」 -->
+        <!-- (role-switch-bar removed) -->
+        <!-- (style-role-bar removed; このバーはラベルが「回答スタイル」だったが実装はロール切替の誤ラベル) -->
+        <!-- alpha §段4: 質問テンプレート撤去 (確定版 5/21、推奨質問は §段6 で実装) -->
+        <!-- 旧 toggleChatTemplates / chat-templates-host は削除 -->
+
+        <!-- #A: RAG パイプラインフロー可視化を削除 (Layer 2 バッジに統合) -->
+        <div id="chat-messages" class="chat-messages"></div>
+        <!-- A-1: 会話が無い空状態のときだけ表示する質問例。最初の送信で #chat-messages に要素が入ると
+             CSS の :empty が外れて自動的に隠れる（JS 不要・回答が始まると消える）。クリックは既存 useFollowup。 -->
+        <style>
+          #chat-examples { display: none; }
+          #chat-messages:empty ~ #chat-examples { display: block; }
+          #chat-examples .ex-title { font-size: 12px; color: var(--muted,#64748b); margin: 14px 16px 6px; }
+          #chat-examples .ex-chip { display:inline-block; margin: 3px 4px 3px 16px; padding: 6px 12px; border:1px solid var(--border,#e2e8f0); border-radius: 14px; background: var(--surface-1,#f8fafc); color: var(--text-2,#334155); font-size: 13px; cursor: pointer; }
+          #chat-examples .ex-chip:hover { background: #eef2ff; }
+        </style>
+        <div id="chat-examples">
+          <div class="ex-title"><span class="en">Try asking</span><span class="ja">質問の例（クリックで送信）</span></div>
+          <button type="button" class="ex-chip" onclick="useFollowup('アップロードした文書の要点を教えて')"><span class="en">Summarize the key points of the uploaded document</span><span class="ja">アップロードした文書の要点を教えて</span></button>
+          <button type="button" class="ex-chip" onclick="useFollowup('この文書に出てくる重要な数字を挙げて')"><span class="en">List the important numbers mentioned in this document</span><span class="ja">この文書に出てくる重要な数字を挙げて</span></button>
+          <button type="button" class="ex-chip" onclick="useFollowup('担当者や連絡先はどこに書かれている？')"><span class="en">Where are the contact persons and contact details written?</span><span class="ja">担当者や連絡先はどこに書かれている？</span></button>
+        </div>
+        <!-- #09 Layer 1: コンテキスト残量を1行表示（取得不能時は非表示） -->
+        <div id="ctx-usage-bar" class="ctx-usage-bar" style="display:none"></div>
+        <div id="ctx-usage-warn" style="display:none"></div>
+        <!-- allinone #8: 回答モード+構造化メニューを ⚙️ ポップアップへ集約（消費コンテキスト ctx-usage-bar は popup 外で維持） -->
+        <div id="chat-settings-popup" style="display:none;border:1px solid var(--border);border-radius:10px;margin:4px 16px;padding:6px 2px;background:var(--surface-1,#f8fafc)">
+        <!-- fix-s3-2: 構造化回答モード選択 -->
+        <div id="answer-mode-row" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:4px 16px">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap"><span class="en">Answer mode:</span><span class="ja">回答モード:</span></span>
+          <button type="button" class="answer-mode-btn active" data-mode="auto" title="質問に応じて自動選択" data-title-en="Auto-select by question" data-title-ja="質問に応じて自動選択">Auto</button>
+          <button type="button" class="answer-mode-btn" data-mode="normal" title="通常の回答" data-title-en="Normal answer" data-title-ja="通常の回答">Normal</button>
+          <!-- U-1: Auto/Normal の2つのみ常時表示。詳細7モードは既定折りたたみ -->
+          <button type="button" id="answer-mode-more-toggle" class="btn btn-sm btn-ghost"
+                  style="font-size:11px;padding:2px 8px" onclick="toggleAdvancedAnswerModes()"
+                  title="詳細な回答モードを表示/非表示" data-title-en="Show/hide advanced answer modes" data-title-ja="詳細な回答モードを表示/非表示"><span class="en">More ▾</span><span class="ja">詳細 ▾</span></button>
+          <span id="answer-mode-advanced" style="display:none;align-items:center;gap:4px;flex-wrap:wrap">
+            <button type="button" class="answer-mode-btn" data-mode="fact_check" title="正誤確認・判定付き" data-title-en="Fact-check with verdict" data-title-ja="正誤確認・判定付き">Fact Check</button>
+            <button type="button" class="answer-mode-btn" data-mode="version_timeline" title="バージョン別整理表" data-title-en="Organized table by version" data-title-ja="バージョン別整理表">Version</button>
+            <button type="button" class="answer-mode-btn" data-mode="procedure" title="手順・CLI・条件明記" data-title-en="Steps, CLI, and conditions" data-title-ja="手順・CLI・条件明記">Procedure</button>
+            <button type="button" class="answer-mode-btn" data-mode="compare" title="比較表" data-title-en="Comparison table" data-title-ja="比較表">Compare</button>
+            <button type="button" class="answer-mode-btn" data-mode="executive_summary" title="300〜500字の要約" data-title-en="300–500 character summary" data-title-ja="300〜500字の要約">Executive</button>
+            <button type="button" class="answer-mode-btn" data-mode="cite_first" title="根拠引用優先" data-title-en="Citation-first" data-title-ja="根拠引用優先">Cite First</button>
+            <button type="button" class="answer-mode-btn" data-mode="custom" title="カスタム指示を入力" data-title-en="Enter custom instructions" data-title-ja="カスタム指示を入力">Custom</button>
+          </span>
+        </div>
+        <div id="custom-prompt-area" style="display:none;padding:4px 16px">
+          <textarea id="custom-prompt-input"
+            placeholder="回答形式や制約を自由に入力してください（例: 箇条書きで3点にまとめてください）"
+            data-ph-en="Freely enter the answer format or constraints (e.g. Summarize in 3 bullet points)"
+            data-ph-ja="回答形式や制約を自由に入力してください（例: 箇条書きで3点にまとめてください）"
+            rows="2"
+            style="width:100%;font-size:12px;resize:vertical"></textarea>
+        </div>
+        </div><!-- /chat-settings-popup (allinone #8) -->
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea id="chat-input" class="chat-input" placeholder="Ask a question... (Shift+Enter to send) / 質問を入力..." rows="2"></textarea>
+            <button id="chat-send-btn" class="chat-send-btn" onclick="sendChat()">▶</button>
+            <button id="chat-stop-btn" class="chat-stop-btn" onclick="stopChat()" style="display:none" title="Stop / 停止">■</button>
+            <button id="chat-settings-btn" class="chat-send-btn" onclick="(function(){var p=document.getElementById('chat-settings-popup');if(p)p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none';})()" title="回答モード・構造化設定（⚙️）" data-title-en="Answer mode &amp; structured settings (⚙️)" data-title-ja="回答モード・構造化設定（⚙️）" style="background:#f1f5f9;color:#334155;">⚙️</button>
+          </div>
+          <!-- F2-B: クライアント側 文字数カウンター (サーバーは 4000 字超で 413 を返す) -->
+          <div id="chat-char-counter" style="text-align:right;font-size:11px;color:#94a3b8;margin-top:2px;">0/4000<span class="en"> chars</span><span class="ja">文字</span></div>
+        </div>
+      </div>
+
+      <!-- F2-1: 監査ログページ -->
+      <div id="page-audit" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">📋</span></div>
+          <div>
+            <div class="page-title"><span class="en">Audit Log</span><span class="ja">監査ログ</span></div>
+            <div class="page-subtitle"><span class="en">Record of all operations &amp; compliance reports</span><span class="ja">全操作の記録・コンプライアンスレポート</span></div>
+          </div>
+          <div class="page-actions">
+            <button id="audit-export-btn" class="btn btn-sm" onclick="exportAuditCsv()" style="display:none;">
+              📥 <span class="en">Export Audit Log CSV</span><span class="ja">監査ログ CSV 出力</span>
+            </button>
+          </div>
+        </div>
+        <div id="audit-filter-bar"></div>
+        <div class="table-wrap"><table id="audit-table"><thead></thead><tbody></tbody></table></div>
+        <div id="audit-pager"></div>
+      </div>
+
+      <!-- Settings -->
+      <div id="page-settings" class="page">
+        <div class="page-header">
+          <div><span class="page-header-icon">⚙️</span></div>
+          <div>
+            <div class="page-title">Settings
+              <button class="help-btn" onclick="showHelp('settings')">?<span class="help-pop"></span></button>
+            </div>
+            <div class="page-subtitle">
+              <span class="en">LM Studio connection settings</span><span class="ja">LM Studio 接続設定</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PHASE UI-1: Settings アコーディオン (6 セクション) -->
+        <!-- 既存のカードを下で定義し、initSettingsAccordion() で各セクションの slot に移動する -->
+        <div id="settings-accordion-shell" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+          <details class="settings-acc" data-acc-key="ai" open>
+            <summary class="settings-acc-summary">🤖 <span class="en">AI / LLM Settings</span><span class="ja">AI / LLM 設定</span></summary>
+            <div class="settings-acc-host" data-section-host="ai"></div>
+          </details>
+          <details class="settings-acc" data-acc-key="ingest-roots"
+                   ontoggle="if(this.open &amp;&amp; typeof renderIngestRoots==='function') renderIngestRoots()">
+            <summary class="settings-acc-summary">📁 <span class="en">Ingest sources</span><span class="ja">取り込み元</span></summary>
+            <div class="settings-acc-host" data-section-host="ingest-roots">
+              <div id="ingest-roots-panel" style="padding:8px 4px;"></div>
+            </div>
+          </details>
+          <details class="settings-acc" data-acc-key="rag">
+            <summary class="settings-acc-summary">✂️ <span class="en">Chunking / RAG Settings</span><span class="ja">チャンキング / RAG 設定</span></summary>
+            <div class="settings-acc-host" data-section-host="rag">
+              <!-- UI-5 のチャンキングプリセットセレクター -->
+              <div id="rag-chunking-presets-host" style="margin:6px 0 10px 0;"></div>
+            </div>
+          </details>
+          <details class="settings-acc" data-acc-key="remote">
+            <summary class="settings-acc-summary">🌐 <span class="en">Remote Access</span><span class="ja">リモートアクセス</span></summary>
+            <div class="settings-acc-host" data-section-host="remote">
+              <div id="remote-access-host" style="padding:6px 0;color:#94a3b8;">
+                <span class="en">Loading...</span><span class="ja">読み込み中...</span>
+              </div>
+            </div>
+          </details>
+          <details class="settings-acc" data-acc-key="mcp">
+            <summary class="settings-acc-summary">🗄️ <span class="en">MCP Connection</span><span class="ja">MCP 連携</span></summary>
+            <div class="settings-acc-host" data-section-host="mcp"></div>
+          </details>
+          <details class="settings-acc" data-acc-key="security">
+            <summary class="settings-acc-summary">🔐 <span class="en">Security / Guardrail</span><span class="ja">セキュリティ / Guardrail</span></summary>
+            <div class="settings-acc-host" data-section-host="security"></div>
+          </details>
+          <details class="settings-acc" data-acc-key="logs">
+            <summary class="settings-acc-summary">📋 <span class="en">Logs / Diagnostics</span><span class="ja">ログ / 診断</span></summary>
+            <div class="settings-acc-host" data-section-host="logs">
+              <!-- UI-3 のフィードバック分析 / ヘルスチェック / 処理ログ -->
+              <div id="feedback-dashboard-host" style="margin:6px 0;"></div>
+              <div id="processing-logs-host" style="margin:6px 0;"></div>
+              <div id="health-summary-host" style="margin:6px 0;"></div>
+            </div>
+          </details>
+        </div>
+
+        <!-- BLOCK 2: ユーザー管理 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">👥 <span class="en">User Management</span><span class="ja">ユーザー管理</span></h3>
+          <div class="btn-row" style="margin-bottom:10px">
+            <button class="btn btn-primary btn-sm" onclick="showAddUserModal()"><span class="en">＋ Add User</span><span class="ja">＋ ユーザー追加</span></button>
+            <button class="btn btn-ghost btn-sm" onclick="renderAdminUsers()">🔄 <span class="en">Refresh</span><span class="ja">更新</span></button>
+          </div>
+          <div id="admin-users-list" class="table-wrap" style="margin-top:6px"></div>
+        </div>
+
+        <!-- BLOCK 3: バックアップ・リカバリ -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">💾 <span class="en">Backup &amp; Recovery</span><span class="ja">バックアップ・リカバリ</span></h3>
+          <div class="form-group">
+            <label class="form-label"><span class="en">Label (optional)</span><span class="ja">ラベル（任意）</span></label>
+            <div class="input-row">
+              <input id="backup-label" class="form-input" type="text" placeholder="例: milestone" data-ph-en="e.g. milestone" data-ph-ja="例: milestone">
+              <button class="btn btn-primary btn-sm" onclick="createBackupNow()">📦 <span class="en">Backup Now</span><span class="ja">今すぐバックアップ</span></button>
+            </div>
+            <div class="form-hint"><span class="en">SQLite and ChromaDB are stored under ~/.cynovela/backups</span><span class="ja">SQLite と ChromaDB を ~/.cynovela/backups 配下に保存します</span></div>
+          </div>
+          <div id="backup-list" class="table-wrap" style="margin-top:10px"></div>
+        </div>
+
+        <!-- Phase 2: LLM Provider 設定 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🤖 <span class="en">LLM Provider</span><span class="ja">LLM プロバイダー</span></h3>
+          <!-- provider3way-20260629: 利用者向けプロバイダーを三分割。OpenAI互換(既定 OpenRouter) /
+               LM Studio / Ollama の3つから選ぶ。この三択が内部の #llm-provider(openai_compat/lmstudio/ollama)
+               に 1:1 で対応し駆動する。source of truth は #llm-provider のまま・ID 不変
+               (既存の applyLlmSettings / get_current_adapter / 各ルーティングは不変)。 -->
+          <div class="form-group">
+            <label class="form-label"><span class="en">Provider</span><span class="ja">プロバイダー</span></label>
+            <select id="llm-provider-mode" class="form-select" onchange="if(typeof onLlmProviderModeChange==='function')onLlmProviderModeChange()">
+              <option value="openai_compat" data-en="OpenAI-compatible (default: OpenRouter)" data-ja="OpenAI互換（既定: OpenRouter）">OpenAI互換（既定: OpenRouter）</option>
+              <option value="lmstudio" data-en="LM Studio (host.containers.internal:1234)" data-ja="LM Studio（host.containers.internal:1234）">LM Studio（host.containers.internal:1234）</option>
+              <option value="ollama" data-en="Ollama (localhost:11434)" data-ja="Ollama（localhost:11434）">Ollama（localhost:11434）</option>
+            </select>
+            <div id="llm-mode-hint" style="font-size:12px;color:var(--text-4);margin-top:4px">
+              <span class="en">OpenAI-compatible: enter the API key (e.g. OpenRouter). LM Studio / Ollama: local, no API key needed.</span><span class="ja">OpenAI互換は API キーを入力します（例: OpenRouter）。LM Studio / Ollama はローカルで API キー不要です。</span>
+            </div>
+          </div>
+          <!-- provider3way-20260629: 三分割では Provider 三択が直接プロバイダーを選ぶため、
+               入れ子の「ローカルの種類」select は不要。#llm-provider は source of truth として
+               DOM に残すが常時非表示 (applyLlmSettings / governance ロードが値を読むため削除しない)。 -->
+          <div id="llm-provider-local-group" class="form-group" style="display:none">
+            <label class="form-label"><span class="en">Local type</span><span class="ja">ローカルの種類</span></label>
+            <select id="llm-provider" class="form-select" onchange="onLlmProviderChange()">
+              <option value="lmstudio" data-en="LM Studio" data-ja="LM Studio">LM Studio</option>
+              <option value="ollama" data-en="Ollama (localhost:11434)" data-ja="Ollama（localhost:11434）">Ollama（localhost:11434）</option>
+              <option value="openai_compat" data-en="OpenAI-compatible (OpenRouter / vLLM / Ollama / Together / etc.)" data-ja="OpenAI互換 (OpenRouter / vLLM / Ollama / Together / etc.)">OpenAI互換 (OpenRouter / vLLM / Ollama / Together / etc.)</option>
+              <option value="mock" data-en="Mock (no LM Studio required)" data-ja="Mock (no LM Studio required / LM Studio 不要)">Mock (no LM Studio required / LM Studio 不要)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input id="llm-base-url" class="form-input" type="text" placeholder="http://host.containers.internal:1234">
+          </div>
+          <div id="llm-api-key-group" class="form-group">
+            <label class="form-label">API Key</label>
+            <!-- modelchat-ui-v3-20260628 spec2/5: type=password を廃止し .apikey-mask-input(視覚マスク)＋autocomplete=off＋PWマネージャ無視属性。鍵を端末資格情報ストアに残さない。 -->
+            <div id="llm-api-key-wrap" class="apikey-wrap"><input id="llm-api-key" class="form-input apikey-mask-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" data-form-type="other" name="nofill-llm-api-key" placeholder="(このセッションのみ・保存しません)" data-ph-en="(This session only — not saved)" data-ph-ja="(このセッションのみ・保存しません)"></div>
+            <div id="llm-api-key-status" style="font-size:16px;color:var(--text-4);margin-top:4px"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <div class="input-row">
+              <input id="llm-model" class="form-input" type="text" placeholder="例: anthropic/claude-3-haiku" data-ph-en="e.g. anthropic/claude-3-haiku" data-ph-ja="例: anthropic/claude-3-haiku">
+              <!-- uxfix-A(2): 取得ボタンを1つに集約。重複の「🔄 Fetch List」(fetchLlmModels=/api/settings/models)を撤去し、
+                   #llm-model-list と #lmstudio-model-select を同時に満たす fetchLlmProviderModels(/api/llm/list-models)に一本化。 -->
+              <button id="fetch-llm-models-btn" class="btn btn-ghost btn-sm" type="button" onclick="fetchLlmProviderModels()">📋 <span class="en">Fetch Model List</span><span class="ja">モデル一覧を取得</span></button>
+            </div>
+            <!-- modelchat-ui-v3-20260628 spec3/4: モデル一覧の先頭に検索(絞り込み)欄(全プロバイダー共通)。既定は非表示で一覧取得時に表示。 -->
+            <input id="llm-model-filter" class="form-input" type="text" style="margin-top:6px;display:none" placeholder="🔍 モデルを検索…" data-ph-en="🔍 Search models…" data-ph-ja="🔍 モデルを検索…" autocomplete="off" oninput="if(typeof filterLlmModelList==='function')filterLlmModelList()">
+            <select id="llm-model-list" class="form-select" style="margin-top:6px;display:none" onchange="$('llm-model').value=this.value; if(typeof saveSelectedLlmModel==='function') saveSelectedLlmModel();"></select>
+            <div id="llm-model-hint" style="font-size:12px;color:var(--text-4);margin-top:4px"></div>
+          </div>
+          <!-- #E: 主設定の単独「適用」ボタンは削除し、カード末尾の「💾 LLM設定をまとめて適用」に集約。
+                   接続テストとステータス表示は維持する。 -->
+          <div class="form-group btn-row">
+            <button class="btn btn-ghost btn-sm" onclick="testLlmConnection()">🔌 <span class="en">Test Connection</span><span class="ja">接続テスト</span></button>
+            <span id="llm-result" class="set-result"></span>
+          </div>
+
+
+          <!-- #06 + GUI修正(2026-05-01) #5: 詳細設定セクション = 第1モデル用 (折りたたみ・デフォルト閉じ) -->
+          <details open style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">
+            <summary style="cursor:pointer;font-weight:600;color:#1e293b;font-size:18px;">🔧 <span class="en">Advanced Settings</span><span class="ja">詳細設定</span></summary>
+            <div style="margin-top:10px;">
+              <div class="form-label" style="margin-bottom:6px;"><span class="en">Model Parameters</span><span class="ja">モデルパラメータ</span></div>
+              <div class="form-hint" style="margin-bottom:10px;">
+                <span class="en">Generation parameters for the LLM Provider (configured above).<br>
+                For LM Studio (Reasoning models), <code>max_tokens</code> is not applied to prevent budget exhaustion.</span><span class="ja">LLM Provider (上の設定) の生成パラメータです。<br>
+                LM Studio (Reasoningモデル) では <code>max_tokens</code> は budget 枯渇防止のため適用されません。</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Temperature (0.0〜2.0)</label>
+                <input id="adv-temperature" class="form-input" type="number" step="0.1" min="0" max="2" placeholder="0.7">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Top P (0.0〜1.0)</label>
+                <input id="adv-top-p" class="form-input" type="number" step="0.05" min="0" max="1" placeholder="0.9">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Top K (1〜100)</label>
+                <input id="adv-top-k" class="form-input" type="number" step="1" min="1" max="100" placeholder="40">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max Tokens (128〜8192)</label>
+                <input id="adv-max-tokens" class="form-input" type="number" step="64" min="128" max="8192" placeholder="1024">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Repeat Penalty (1.0〜2.0)</label>
+                <input id="adv-repeat-penalty" class="form-input" type="number" step="0.05" min="1" max="2" placeholder="1.1">
+              </div>
+              <div class="form-group" style="display:none">
+                <label class="form-label">Seed (<span class="en">optional, blank for random</span><span class="ja">任意・空欄でランダム</span>)</label>
+                <input id="adv-seed" class="form-input" type="number" step="1" placeholder="">
+              </div>
+              <div style="border-top:1px dashed var(--border);margin:14px 0 10px 0;"></div>
+              <div class="form-label" style="margin-bottom:6px;"><span class="en">RAG Settings</span><span class="ja">RAG 設定</span></div>
+              <div class="form-group">
+                <label class="form-label"><span class="en">Chunk Size</span><span class="ja">チャンクサイズ</span></label>
+                <input id="adv-chunk-size" class="form-input" type="number" step="1" min="64" max="4096" placeholder="512">
+              </div>
+              <div class="form-group">
+                <label class="form-label"><span class="en">Overlap</span><span class="ja">オーバーラップ</span></label>
+                <input id="adv-chunk-overlap" class="form-input" type="number" step="1" min="0" max="1024" placeholder="64">
+              </div>
+              <!-- pathdisplay-20260706: 取り込みフォルダの実際の場所（表示専用の申告値・settings key: ingest.host_path） -->
+              <div class="form-group">
+                <label class="form-label"><span class="en">Actual location of the ingest folder (path on this machine)</span><span class="ja">取り込みフォルダの実際の場所（この機体でのパス）</span></label>
+                <input id="adv-ingest-host-path" class="form-input" type="text"
+                       placeholder="例: /path/to/documents" data-ph-en="e.g. /path/to/documents" data-ph-ja="例: /path/to/documents"
+                       onchange="_resetIngestHostPathCache()">
+                <div class="form-hint"><span class="en">Used for display only. If entered incorrectly, the displayed paths will also be wrong.</span><span class="ja">表示にのみ使われます。誤入力すると表示も誤ります。</span></div>
+              </div>
+              <!-- FEATURE 8: 検索ヒット件数（RAG）— LLM の Top-K とは別物 -->
+              <div style="margin-top:12px;">
+                <div class="form-label">📊 <span class="en">Retrieval Hits (RAG)</span><span class="ja">検索ヒット件数（RAG）</span></div>
+                <div class="form-hint" style="margin-bottom:6px;">
+                  <span class="en">Number of documents referenced in RAG Chat (1–100). Separate from the LLM's Top-K.</span><span class="ja">RAG Chatで参照するドキュメント数（1〜100）。LLMのTop-Kとは別です。</span>
+                </div>
+                <div class="form-group">
+                  <input id="adv-retrieval-n" class="form-input" type="number"
+                         min="1" max="100" placeholder="例: 5（デフォルト）" data-ph-en="e.g. 5 (default)" data-ph-ja="例: 5（デフォルト）"
+                         style="width:120px;display:inline-block;">
+                  <button onclick="saveRetrievalN()" class="btn btn-sm"><span class="en">Save</span><span class="ja">保存</span></button>
+                  <span id="adv-retrieval-n-result" class="set-result"></span>
+                </div>
+              </div>
+              <!-- #E: サブ単独「適用」を廃止 (カード末尾の master ボタンに集約) -->
+              <div class="form-group btn-row">
+                <span id="adv-result" class="set-result"></span>
+              </div>
+            </div>
+            <!-- #09 Step E: 1台目（Provider本体）のコンテキスト長 手動設定 -->
+            <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">
+              <div class="form-label" style="margin-bottom:6px;">📏 <span class="en">Context Length (manual, optional)</span><span class="ja">コンテキスト長（手動設定・任意）</span></div>
+              <div class="form-hint" style="margin-bottom:8px;">
+                <span class="en">If left blank, it is auto-detected from the connected endpoint (LM Studio / Ollama supported). A manual value takes precedence.</span><span class="ja">空欄の場合は接続先から自動取得を試みます（LM Studio・Ollama対応）。手動指定があればそれを優先します。</span>
+              </div>
+              <div class="form-group">
+                <input id="llm-ctx-len" class="form-input" type="number" min="0" placeholder="例: 32768" data-ph-en="e.g. 32768" data-ph-ja="例: 32768">
+                <span id="llm-ctx-len-result" class="set-result"></span>
+              </div>
+            </div>
+          </details>
+
+
+          <!-- FEATURE 1: システムプロンプト編集 -->
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">
+            <div class="form-label" style="margin-bottom:6px;">🧠 <span class="en">System Prompt</span><span class="ja">システムプロンプト</span></div>
+            <div class="form-hint" style="margin-bottom:8px;">
+              <span class="en">The system prompt passed to RAG Chat. The <code>{context}</code> placeholder is required. Saving it blank reverts to the default.</span><span class="ja">RAG Chat に渡されるシステムプロンプトです。<code>{context}</code> プレースホルダーは必須です。空欄保存でデフォルトに戻ります。</span>
+            </div>
+            <div class="form-group">
+              <textarea id="system-prompt-textarea" class="form-input" rows="8"
+                        style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;"
+                        placeholder="読み込み中..." data-ph-en="Loading..." data-ph-ja="読み込み中..." disabled></textarea>
+              <div id="system-prompt-status" style="font-size:13px;color:var(--text-3);margin-top:4px;"></div>
+            </div>
+            <div class="form-group btn-row">
+              <button class="btn btn-ghost btn-sm" id="sysprompt-edit-btn" onclick="enableSystemPromptEdit()">✏️ <span class="en">Edit</span><span class="ja">編集</span></button>
+              <button class="btn btn-ghost btn-sm" id="sysprompt-cancel-btn" onclick="cancelSystemPromptEdit()" style="display:none">✖ <span class="en">Cancel</span><span class="ja">キャンセル</span></button>
+              <button class="btn btn-ghost btn-sm" onclick="resetSystemPromptToDefault()">↩ <span class="en">Reset to Default</span><span class="ja">デフォルトに戻す</span></button>
+              <button class="btn btn-primary btn-sm" id="sysprompt-save-btn" onclick="saveSystemPrompt()" disabled>💾 <span class="en">Save</span><span class="ja">保存</span></button>
+              <span id="system-prompt-result" class="set-result"></span>
+            </div>
+          </div>
+
+          <!-- #E: LLM カード全体の master 保存ボタン (主設定 + 第2モデル + 詳細設定 + ctx長 を一括保存) -->
+          <div style="font-size:12px;color:var(--color-text-secondary);margin-top:18px;margin-bottom:8px;padding:8px;background:var(--color-background-secondary);border-radius:6px;">
+            💡 <span class="en">Save all LLM settings above (connection, parameters, context length) at once.</span><span class="ja">上記すべてのLLM設定（接続・パラメータ・コンテキスト長）をまとめて保存します</span>
+          </div>
+          <div style="margin-top:0;padding-top:14px;border-top:2px solid #e2e8f0;display:flex;align-items:center;gap:10px;">
+            <button class="btn btn-primary" onclick="applyAllLlmSettings()" style="font-weight:700;">
+              💾 <span class="en">Apply All LLM Settings</span><span class="ja">LLM 設定をまとめて適用</span>
+            </button>
+            <span id="llm-master-result" class="set-result"></span>
+            <!-- settings-unsaved-indicator-fix-20260628: 主設定3欄の未適用(未保存)手入力を表示。既定は非表示・適用成功/保存値復帰で消える。 -->
+            <span id="llm-unsaved-note" class="set-result" style="display:none;color:#b45309;font-weight:600;">⚠️ <span class="en">You have unapplied changes</span><span class="ja">未適用の変更があります</span></span>
+          </div>
+        </div>
+
+        <!-- Phase 2 Step 2: Embedding Provider 設定 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🔤 <span class="en">Embedding Provider</span><span class="ja">埋め込みプロバイダー</span></h3>
+          <div class="form-group">
+            <label class="form-label"><span class="en">Provider</span><span class="ja">プロバイダー</span></label>
+            <select id="emb-provider" class="form-select" onchange="onEmbProviderChange()">
+              <option value="local" data-en="Local (CPU / sentence-transformers)" data-ja="Local (CPU / sentence-transformers)">Local (CPU / sentence-transformers)</option>
+              <option value="openai_compat" data-en="OpenAI-compatible" data-ja="OpenAI-compatible / OpenAI 互換">OpenAI-compatible / OpenAI 互換</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <input id="emb-model" class="form-input" type="text" placeholder="all-MiniLM-L6-v2">
+          </div>
+          <!-- mas-status-20260725: 外の口 (Mac Accelerator Service) の稼働状態と退避表示 -->
+          <div id="emb-accel-status" class="hint" style="display:none;margin:4px 0 8px 0;font-weight:600"></div>
+          <div class="form-group" id="emb-base-url-row" style="display:none">
+            <label class="form-label">Base URL (openai_compat)</label>
+            <input id="emb-base-url" class="form-input" type="text" placeholder="https://api.openai.com">
+          </div>
+          <div class="form-group" id="emb-api-key-row" style="display:none">
+            <label class="form-label">API Key</label>
+            <div id="emb-api-key-wrap" class="apikey-wrap"><input id="emb-api-key" class="form-input apikey-mask-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" data-form-type="other" name="nofill-emb-api-key" placeholder="(環境変数 CYNOVELA_EMBEDDING_API_KEY が無い場合のみ)" data-ph-en="(Only if the CYNOVELA_EMBEDDING_API_KEY env var is not set)" data-ph-ja="(環境変数 CYNOVELA_EMBEDDING_API_KEY が無い場合のみ)"></div>
+          </div>
+          <div style="font-size:16px;color:#92400e;background:#fef3c7;padding:6px 10px;border-radius:4px;margin-bottom:10px">
+            ⚠️ <span class="en">Changing Embedding requires re-publishing existing Collections</span><span class="ja">Embedding を変更すると既存 Collection の再 Publish が必要になります</span>
+          </div>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="applyEmbSettings()">💾 <span class="en">Apply</span><span class="ja">適用</span></button>
+            <span id="emb-result" class="set-result"></span>
+          </div>
+        </div>
+
+        <!-- Phase 2 Step 3: Vector Store 設定 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🗄️ <span class="en">Vector Store</span><span class="ja">ベクターストア</span></h3>
+          <div class="form-group">
+            <label class="form-label"><span class="en">Provider</span><span class="ja">プロバイダー</span></label>
+            <select id="vs-provider" class="form-select" onchange="onVsProviderChange()">
+              <option value="chromadb" data-en="ChromaDB (local)" data-ja="ChromaDB (local / ローカル)">ChromaDB (local / ローカル)</option>
+            </select>
+          </div>
+          <div class="form-group" id="vs-qdrant-row" style="display:none">
+            <label class="form-label">Qdrant URL</label>
+            <input id="vs-qdrant-url" class="form-input" type="text" placeholder="http://localhost:6333">
+          </div>
+          <div style="font-size:16px;color:#92400e;background:#fef3c7;padding:6px 10px;border-radius:4px;margin-bottom:10px">
+            ⚠️ <span class="en">Changing Vector Store requires re-publishing all existing data</span><span class="ja">Vector Store を変更すると既存データの再 Publish が必要になります</span>
+          </div>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="applyVsSettings()">💾 <span class="en">Apply</span><span class="ja">適用</span></button>
+            <span id="vs-result" class="set-result"></span>
+          </div>
+        </div>
+
+        <!-- Phase 2 Step 4: Classifier 設定 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🛡️ <span class="en">Classifier (PII Detection)</span><span class="ja">Classifier (PII 検出)</span></h3>
+          <div class="form-group">
+            <label class="form-label"><span class="en">Provider</span><span class="ja">プロバイダー</span></label>
+            <select id="cls-provider" class="form-select" onchange="onClsProviderChange()">
+              <option value="rule_based" data-en="Rule-based (regex / built-in)" data-ja="ルールベース (regex / 内蔵)">ルールベース (regex / 内蔵)</option>
+              <option value="api" data-en="External API" data-ja="External API / 外部 API">External API / 外部 API</option>
+            </select>
+          </div>
+          <div class="form-group" id="cls-api-row" style="display:none">
+            <label class="form-label">API URL</label>
+            <input id="cls-api-url" class="form-input" type="text" placeholder="https://example.com/api/classify">
+          </div>
+          <div class="form-group" id="cls-api-key-row" style="display:none">
+            <label class="form-label">API Key</label>
+            <div id="cls-api-key-wrap" class="apikey-wrap"><input id="cls-api-key" class="form-input apikey-mask-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" data-form-type="other" name="nofill-cls-api-key" placeholder="(環境変数 CYNOVELA_CLASSIFIER_API_KEY が無い場合のみ)" data-ph-en="(Only if the CYNOVELA_CLASSIFIER_API_KEY env var is not set)" data-ph-ja="(環境変数 CYNOVELA_CLASSIFIER_API_KEY が無い場合のみ)"></div>
+          </div>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="applyClsSettings()">💾 <span class="en">Apply</span><span class="ja">適用</span></button>
+            <span id="cls-result" class="set-result"></span>
+          </div>
+          <!-- P4-5: PII検出精度設定
+               ga-close-v3 PartX: 選べる形（<select>）を撤去し、実際に効いている値の読み取り専用表示にした。
+               画面で選び直しても伏字の強さは変わらない（引き渡しの仕組みは本ランの対象外）ため、
+               「選べるのに効かない」という嘘だけを消す。表示値は GET /api/settings/pii-mode の実測値。 -->
+          <div class="form-group" style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;">
+            <label class="form-label"><span class="en">PII Detection Accuracy</span><span class="ja">PII検出精度</span></label>
+            <div id="pii-detection-mode-view" class="form-input" style="background:#f8fafc;color:#475569;">
+              <span class="en">Standard (regex + GiNZA NER + Japanese address)</span><span class="ja">標準（regex + GiNZA NER + 日本語住所）</span>
+            </div>
+            <small style="color:var(--muted);display:block;margin-top:4px;font-size:13px;">
+              <span class="en">Fixed for this build (not selectable). The GiNZA model is loaded on first use, which takes some time.</span><span class="ja">この版では固定です（画面からは選べません）。GiNZAモデルをロードします（初回のみ時間がかかります）。</span>
+            </small>
+          </div>
+        </div>
+
+        <!-- Phase 2 Step 5: Reranker 設定 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🔀 <span class="en">Reranker</span><span class="ja">リランカー</span></h3>
+          <div class="form-group">
+            <label class="form-label"><span class="en">Provider</span><span class="ja">プロバイダー</span></label>
+            <select id="rr-provider" class="form-select" onchange="onRrProviderChange()">
+              <option value="none" data-en="None (no rerank)" data-ja="None (no rerank / Rerank なし)">None (no rerank / Rerank なし)</option>
+              <option value="cross_encoder" data-en="CrossEncoder (local)" data-ja="CrossEncoder (local / ローカル)">CrossEncoder (local / ローカル)</option>
+              <option value="external_accelerator" data-en="External accelerator (Mac Accelerator Service)" data-ja="External accelerator / 外の口 (Mac Accelerator Service)">External accelerator / 外の口 (Mac Accelerator Service)</option>
+              <option value="cohere" data-en="Cohere" data-ja="Cohere">Cohere</option>
+              <option value="jina" data-en="Jina" data-ja="Jina">Jina</option>
+              <option value="voyage" data-en="Voyage" data-ja="Voyage">Voyage</option>
+              <option value="openai_compat" data-en="OpenAI-compatible (/v1/rerank)" data-ja="OpenAI-compatible / OpenAI 互換 (/v1/rerank)">OpenAI-compatible / OpenAI 互換 (/v1/rerank)</option>
+              <option value="http_tei" data-en="HTTP (TEI Compatible)" data-ja="HTTP (TEI Compatible)">HTTP (TEI Compatible)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <input id="rr-model" class="form-input" type="text" placeholder="cross-encoder/ms-marco-MiniLM-L-6-v2">
+          </div>
+          <div class="form-group" id="rr-base-url-row" style="display:none">
+            <label class="form-label"><span class="en">Base URL (Ollama / OpenAI-compatible)</span><span class="ja">Base URL (Ollama / OpenAI互換)</span></label>
+            <input id="rr-base-url" class="form-input" type="text" placeholder="http://localhost:11434 など" data-ph-en="e.g. http://localhost:11434" data-ph-ja="http://localhost:11434 など">
+          </div>
+          <div class="form-group" id="rr-api-key-row" style="display:none">
+            <label class="form-label">API Key</label>
+            <div id="rr-api-key-wrap" class="apikey-wrap"><input id="rr-api-key" class="form-input apikey-mask-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true" data-form-type="other" name="nofill-rr-api-key" placeholder="(環境変数 CYNOVELA_RERANKER_API_KEY が無い場合のみ)" data-ph-en="(Only if the CYNOVELA_RERANKER_API_KEY env var is not set)" data-ph-ja="(環境変数 CYNOVELA_RERANKER_API_KEY が無い場合のみ)"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Top N</label>
+            <input id="rr-topn" class="form-input" type="number" min="1" value="5" style="width:80px">
+          </div>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="applyRrSettings()">💾 <span class="en">Apply</span><span class="ja">適用</span></button>
+            <button class="btn btn-ghost btn-sm" onclick="testRrConnection()">🔌 <span class="en">Test Connection</span><span class="ja">接続テスト</span></button>
+            <span id="rr-result" class="set-result"></span>
+          </div>
+          <!-- ga-finish-20260727: 再ランクの現在の実行場所/状態 (外の口・本体内・再ランクなし) -->
+          <div class="form-group">
+            <span id="rr-accel-status" class="set-result" style="display:none"></span>
+          </div>
+        </div>
+
+        <!-- Phase 2 Step 6: 全体ヘルスチェック -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🔍 <span class="en">System Health Check</span><span class="ja">全体ヘルスチェック</span></h3>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="runHealthCheck()">🔍 <span class="en">Check All Providers</span><span class="ja">全 Provider 確認</span></button>
+          </div>
+          <div id="health-result" style="margin-top:8px;font-size:16px"></div>
+        </div>
+
+        <!-- A-2: Legacy LLM Settings カード（settings DB ベース・後方互換 #set-endpoint/#set-model/loadModels/testConnection/saveSettings）を撤去。
+             正規経路は上の「LLM Provider」(#llm-provider/#llm-base-url/#llm-model・/api/settings/llm) に一本化済み。 -->
+
+        <!-- PHASE M-2 拡張: Image Processing (VLM) -->
+        <div class="card settings-card">
+          <h3 style="margin:0 0 10px 0">🖼️ <span class="en">Image Processing (VLM)</span><span class="ja">画像処理（VLM）</span></h3>
+          <div class="form-group">
+            <label class="form-label" for="image-processing-mode"><span class="en">Mode</span><span class="ja">モード</span></label>
+            <select id="image-processing-mode" class="form-select">
+              <option value="filename_only">filename_only - fastest, no caption</option>
+              <option value="none">none - skip image content</option>
+              <option value="lm_studio">lm_studio - LM Studio Vision (Gemma Vision)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="image-vlm-model"><span class="en">VLM model (optional, lm_studio only)</span><span class="ja">VLM モデル名（任意・lm_studio のみ）</span></label>
+            <input id="image-vlm-model" class="form-input" type="text" placeholder="(auto / e.g. gemma-4-26b-a4b-it)">
+          </div>
+          <div class="form-group btn-row">
+            <button class="btn btn-primary" onclick="applyImageMode()">💾 <span class="en">Apply</span><span class="ja">適用</span></button>
+            <span id="image-mode-result" class="set-result"></span>
+          </div>
+        </div>
+
+        <!-- P6-A: MCP セクション -->
+        <div class="card settings-card">
+          <h3 style="margin:0 0 10px 0">🧩 <span class="en">MCP (Model Context Protocol) Server</span><span class="ja">MCP（Model Context Protocol）サーバー</span></h3>
+          <div id="mcp-section-host"></div>
+        </div>
+
+        <!-- #F: Contextual Chunking はコレクション Publish 画面に移動済みのため Settings からは削除 -->
+
+        <!-- GUI修正2 #35: アーカイブ済み一覧 -->
+        <div class="card settings-card">
+          <h3 style="margin:0 0 10px 0">🗄️ <span class="en">Archived</span><span class="ja">アーカイブ済み</span></h3>
+          <div id="archived-host"></div>
+        </div>
+
+        <!-- MCP連携設定 -->
+        <div class="card settings-card">
+          <h3 style="margin:0 0 10px 0">🔌 <span class="en">MCP Integration</span><span class="ja">MCP連携設定</span></h3>
+          <div class="form-hint" style="margin-bottom:12px;">
+            <span class="en">Use Cynovela RAG as an MCP tool from external AI clients.<br>
+            Cynovela must be running.</span><span class="ja">Cynovela RAGをMCPツールとして外部のAIクライアントから利用できます。<br>
+            Cynovelaが起動中である必要があります。</span>
+          </div>
+          <div class="form-hint" style="margin-bottom:12px;">
+            <span class="en">Available tools:</span><span class="ja">利用可能なツール:</span> <code id="mcp-available-tools">search_collection / list_workspaces …</code>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div class="form-label" style="margin-bottom:4px;">Claude Desktop</div>
+            <div class="form-hint" style="margin-bottom:6px;">
+              <span class="en">Append to</span><span class="ja">追記先:</span> <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="copyMcpConfig()">📋 <span class="en">Copy Config</span><span class="ja">設定をコピー</span></button>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div class="form-label" style="margin-bottom:4px;"><span class="en">LM Studio (v0.3.17+) and other MCP clients</span><span class="ja">LM Studio（v0.3.17以降）・その他MCPクライアント</span></div>
+            <div class="form-hint" style="margin-bottom:6px;">
+              <span class="en">Available by appending the same config to mcp.json.</span><span class="ja">mcp.json に同じ設定を追記することで利用できます</span>
+            </div>
+          </div>
+          <div>
+            <button class="btn btn-secondary btn-sm" onclick="testMcpConnection()">🔍 <span class="en">Test Connection</span><span class="ja">接続テスト</span></button>
+            <span id="mcp-test-result" class="set-result"></span>
+          </div>
+        </div>
+
+        <!-- ワークスペース管理 -->
+        <div class="card settings-card" data-role-min="admin">
+          <h3 style="margin:0 0 10px 0">🗂️ <span class="en">Workspace Management</span><span class="ja">ワークスペース管理</span></h3>
+          <!-- ga-finalize-20260718: 書き出し/取り込みは未完成(Beta)のため操作停止。実装・API・DOM IDは温存 -->
+          <div class="form-hint" style="margin-bottom:10px;color:var(--warning,#b45309);"><span class="ja">この機能は未完成のため現在ご利用いただけません</span><span class="en">This feature is unfinished and currently unavailable.</span></div>
+          <div style="margin-bottom:16px;">
+            <div class="form-label"><span class="en">Export Settings (ZIP)</span><span class="ja">設定をエクスポート（ZIP）</span></div>
+            <div class="form-hint" style="margin-bottom:8px;">
+              <span class="en">Download the current workspace's settings, collection definitions, and guardrails as a ZIP.<br>
+              * Vector data is not included. Each collection must be re-published after import.</span><span class="ja">現在のワークスペースの設定・コレクション定義・ガードレールをZIPでダウンロードします。<br>
+              ※ベクターデータは含まれません。インポート後に各コレクションのPublishが必要です。</span>
+            </div>
+            <!-- fix-export-usable-container-20260717: エクスポート対象WS選択一覧（軽量） -->
+            <div style="margin-bottom:8px;">
+              <div class="form-label"><span class="en">Select workspace to export</span><span class="ja">エクスポート対象ワークスペースを選択</span></div>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <input type="text" id="export-picker-q" class="form-input" style="width:200px"
+                       placeholder="検索 / Search" oninput="exportPickerSetQ(this.value)">
+                <select id="export-picker-filter" class="form-input" style="width:160px" onchange="exportPickerSetFilter(this.value)">
+                  <option value="" data-en="All" data-ja="すべて">すべて</option>
+                  <option value="published" data-en="Has published" data-ja="公開済みあり">公開済みあり</option>
+                  <option value="no_collection" data-en="No collection" data-ja="Collection未作成">Collection未作成</option>
+                </select>
+              </div>
+              <div id="export-picker-list" style="max-height:180px;overflow-y:auto;border:1px solid var(--border,#e2e8f0);border-radius:6px;"></div>
+            </div>
+            <button id="export-ws-btn" class="btn btn-secondary" disabled onclick="exportWorkspace(_exportPickerSelectedId)">
+              ⬇ <span class="en">Export Settings — Unfinished (Beta)</span><span class="ja">設定エクスポート（未完成（Beta））</span>
+            </button>
+            <span style="margin-left:12px;"></span>
+            <button id="full-export-ws-btn" class="btn btn-secondary" disabled onclick="fullExportWorkspace(_exportPickerSelectedId)">
+              ⬇ <span class="en">Full Export (with vectors) — Unfinished (Beta)</span><span class="ja">フルエクスポート（ベクター込み）（未完成（Beta））</span>
+            </button>
+            <div class="form-hint" style="margin-top:4px;">
+              <span class="en">* Full export file size grows with the number of collections.</span><span class="ja">※フルエクスポートはコレクション数に応じてファイルサイズが大きくなります</span>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:16px;">
+            <div class="form-label"><span class="en">Import ZIP</span><span class="ja">ZIPをインポート</span></div>
+            <div class="form-hint" style="margin-bottom:8px;">
+              <span class="en">Select an exported ZIP file.<br>
+              * Settings-only ZIPs require re-publishing each collection after import.<br>
+              * Full-export ZIPs let you use RAG Chat immediately after import.</span><span class="ja">エクスポートしたZIPファイルを選択してください。<br>
+              ※設定のみZIPはインポート後に各コレクションのPublishが必要です。<br>
+              ※フルエクスポートZIPはインポート後すぐにRAG Chatが使えます。</span>
+            </div>
+            <input type="file" id="import-workspace-file" accept=".zip" disabled
+                   style="margin-bottom:8px;display:block;">
+            <button class="btn btn-secondary" disabled onclick="importWorkspace()">
+              ⬆ <span class="en">Run Import — Unfinished (Beta)</span><span class="ja">インポート実行（未完成（Beta））</span>
+            </button>
+            <span id="import-workspace-result" class="set-result"></span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-wrap"></div>
+
+<!-- Markdown renderer for chat answers (#02) - vendored locally (Hotfix-1 follow-up) -->
+<script src="/static/vendor/marked.min.js"></script>
+<!-- Cynovela v13 - app.js split (Namespace pattern) -->
+<script src="/frontend/js/i18n.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/state.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/api.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/ui.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/auth.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/workspace.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/collections.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/sources.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/ingest_roots_ui.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/admin.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/audit.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/catalog.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/pipeline.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/ingestviz.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/guardrails.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/governance.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/chat.js?v=dd0115-20260815"></script>
+<script src="/frontend/js/main.js?v=dd0115-20260815"></script>
+
+<!-- r1-model-missing-20260802 (DD-CYN-0020 R-1): 埋め込み経路の状態を画面に出す帯。
+     受け口 /api/settings/embedding は fallback / local_device / identity を返していたが、
+     画面はこれを1か所も読んでいなかった。読む人が居ないので、モデルが無くても検索は
+     「該当する情報が含まれていません」としか言わず、原因が分からなかった (実測 2026-08-02)。
+     ここでは受け口の値を読むだけで、受け口側 (server.py / routers/) には触れない。 -->
+<div id="embed-state-banner"
+     style="display:none; position:fixed; left:0; right:0; bottom:0; z-index:9998;
+            padding:10px 16px; font-size:13px; line-height:1.6;
+            border-top:1px solid rgba(0,0,0,.08); box-shadow:0 -2px 10px rgba(0,0,0,.06);">
+  <span id="embed-state-icon" style="margin-right:6px;"></span><span id="embed-state-text"></span>
+  <button onclick="document.getElementById('embed-state-banner').style.display='none'"
+          style="float:right; border:none; background:transparent; cursor:pointer; font-size:14px;"
+          title="閉じる / Close">&times;</button>
+</div>
+<script>
+(function(){
+  // 埋め込み経路 (取り込みと検索に使うモデル) の状態を、管理者の画面に帯で出す。
+  // 出すのは3つ:
+  //   1. モデルを読み込めなかった (原因と置き場所つき) … 赤
+  //   2. 外の口へ届かずローカルへ退避した … 黄 (退避先にもモデルが無ければ赤)
+  //   3. 索引を作った埋め込みと今の埋め込みが食い違う … 黄
+  // どれも無ければ何も出さない。
+  var POLL_MS = 60000;
+  var _forbiddenToken = null;   // 403 を返された token (同じ token では叩き直さない)
+  function show(level, text){
+    var el = document.getElementById('embed-state-banner');
+    if(!el) return;
+    var icon = document.getElementById('embed-state-icon');
+    var body = document.getElementById('embed-state-text');
+    el.style.background = (level === 'error') ? '#fef2f2' : '#fffbeb';
+    el.style.color      = (level === 'error') ? '#991b1b' : '#92400e';
+    if(icon) icon.textContent = (level === 'error') ? '\u26D4' : '\u26A0\uFE0F';
+    if(body) body.textContent = text;
+    el.style.display = 'block';
+  }
+  function hide(){
+    var el = document.getElementById('embed-state-banner');
+    if(el) el.style.display = 'none';
+  }
+  function _api(){
+    // API は index.html の外 (frontend/js/api.js) で宣言されており、window の属性には
+    // 乗らない場合がある (const 宣言)。window 経由で見に行くと常に未定義になるため、
+    // 素の識別子で存在を確かめる。
+    try{ return (typeof API !== 'undefined' && API && API.get) ? API : null; }catch(e){ return null; }
+  }
+  async function check(force){
+    try{
+      var _a = _api();
+      if(!_a) return;
+      if(force === true) _forbiddenToken = null;   // 初回パスワード変更の直後など、同じ token で 403 が解けたとき
+      // polling-401-fix (2026-09-21): ログイン前・セッション切れ後 (token 無し) は叩かない。
+      // 叩いても 401 になるだけで、監査ログに auth_failed が毎分 (起動直後は 5 秒ごと) 積もっていた。
+      // 再ログインで token が戻れば、次の周期からそのまま再開する。
+      if(!_a.token){ hide(); return; }
+      // 403 (管理者でない) を返された token では、その token の間は叩き直さない。
+      if(_forbiddenToken && _forbiddenToken === _a.token) return;
+      _forbiddenToken = null;
+      var _tok = _a.token;
+      var info = await _a.get('/api/settings/embedding');   // 管理者のみ。閲覧者は 403 で何も出ない
+      if(!info) { hide(); return; }
+      var fb  = info.fallback || {};
+      var mle = fb.model_load_error || {};
+      if(mle.active){
+        show('error', mle.message || ('埋め込みモデル ' + (mle.model || '') + ' を読み込めません。探した場所: ' + (mle.looked_in || '')));
+        return;
+      }
+      if(fb.active){
+        if(fb.local_model_missing){
+          show('error',
+            '外の埋め込みサーバへ届かず、手元にもモデルがありません。取り込みも検索も成り立ちません。'
+            + '（退避先: ' + (fb.target || '不明') + ' / 失敗: ' + (fb.error || '') + '）');
+        }else{
+          show('warn',
+            '外の埋め込みサーバへ届かないため、手元 (' + (fb.target || info.local_device || '不明') + ') で計算しています。'
+            + '遅くなりますが動きます。（失敗: ' + (fb.error || '') + '）');
+        }
+        return;
+      }
+      var idt = info.identity || {};
+      if(idt.checked && idt.match === false){
+        show('warn', '索引を作った埋め込みと、いまの埋め込みが食い違っています。'
+          + (idt.message || '') + ' 順位が壊れることがあります。');
+        return;
+      }
+      hide();
+    }catch(e){
+      /* 閲覧者の 403・未ログインなどでは何も出さない */
+      if(e && e.status === 403){ _forbiddenToken = _tok; }
+      if(e && (e.status === 401 || e.status === 403)){ hide(); }
+    }
+  }
+  function start(){
+    // ログイン前は API が未配線・受け口も 403 になる。出せる状態になるまで短い間隔で
+    // 様子を見て、出せるようになったら通常の間隔へ落とす。
+    var tries = 0;
+    var warm = setInterval(function(){
+      tries++;
+      if(_api()){ check(); }
+      if(tries > 60){ clearInterval(warm); }
+    }, 5000);
+    setInterval(check, POLL_MS);
+    setTimeout(check, 1500);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', start);
+  }else{
+    start();
+  }
+  window._checkEmbeddingState = check;   // 取り込み・検索の直後に呼べるようにしておく
+})();
+</script>
+
+<!-- R2: RAG Chat サイドパネル / popup-mode は削除済み (フルスクリーンの Chat ページのみ) -->
+
+<!-- Batch-B S1-3: Lock Screen Overlay -->
+<div id="lock-overlay"
+     style="display:none; position:fixed; inset:0; z-index:10001;
+            background:rgba(15,23,42,0.92); backdrop-filter:blur(8px);">
+  <div style="display:flex; flex-direction:column; align-items:center;
+              justify-content:center; height:100%; gap:16px;">
+    <div style="color:#fff; font-size:22px; font-weight:700; letter-spacing:.05em;">
+      🔒 <span class="en">Screen is locked</span><span class="ja">画面がロックされています</span>
+    </div>
+    <div style="color:#94a3b8; font-size:14px;" id="lock-username"></div>
+    <input id="lock-password" type="password"
+           placeholder="パスワードを入力して解除" data-ph-en="Enter password to unlock" data-ph-ja="パスワードを入力して解除"
+           style="padding:12px 16px; border-radius:8px; border:none;
+                  font-size:16px; width:280px; outline:none;"
+           onkeydown="if(event.key==='Enter') window._unlockScreen()">
+    <button onclick="window._unlockScreen()"
+            style="padding:10px 28px; background:#16a34a; color:#fff;
+                   border:none; border-radius:8px; font-size:16px;
+                   cursor:pointer; font-weight:600;">
+      <span class="en">Unlock</span><span class="ja">解除</span>
+    </button>
+    <div id="lock-error" style="color:#f87171; font-size:14px; min-height:20px;"></div>
+    <button onclick="doLogout()"
+            style="background:none; border:none; color:#64748b;
+                   font-size:13px; cursor:pointer; margin-top:8px;">
+      <span class="en">Logout</span><span class="ja">ログアウト</span>
+    </button>
+  </div>
+</div>
+
+<!-- Batch-B S1-1: Must Change Password Modal -->
+<div id="must-change-pw-overlay"
+     style="display:none; position:fixed; inset:0; z-index:10002;
+            background:rgba(15,23,42,0.85); backdrop-filter:blur(6px);">
+  <div style="display:flex; align-items:center; justify-content:center; height:100%;">
+    <div style="background:#fff; border-radius:14px; padding:28px 32px;
+                width:360px; box-shadow:0 8px 32px rgba(0,0,0,.2);">
+      <h3 style="margin:0 0 8px; font-size:18px;"><span class="en">Change Your Initial Password</span><span class="ja">初回パスワードの変更</span></h3>
+      <p style="color:#64748b; font-size:14px; margin:0 0 20px; line-height:1.6;">
+        <span class="en">For security, please change your password.</span><span class="ja">セキュリティのため、パスワードを変更してください。</span>
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <input id="mcpw-current" type="password" placeholder="現在のパスワード" data-ph-en="Current password" data-ph-ja="現在のパスワード"
+               style="padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+        <input id="mcpw-new" type="password" placeholder="新しいパスワード（8文字以上）" data-ph-en="New password (8 or more characters)" data-ph-ja="新しいパスワード（8文字以上）"
+               style="padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+        <input id="mcpw-confirm" type="password" placeholder="新しいパスワード（確認）" data-ph-en="New password (confirm)" data-ph-ja="新しいパスワード（確認）"
+               style="padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;"
+               onkeydown="if(event.key==='Enter') window._submitMustChangePw()">
+        <div id="mcpw-error" style="color:#dc2626; font-size:13px; min-height:18px;"></div>
+        <button onclick="window._submitMustChangePw()"
+                style="padding:11px; background:#16a34a; color:#fff; border:none;
+                       border-radius:8px; font-size:15px; cursor:pointer;
+                       font-weight:600; margin-top:4px;">
+          <span class="en">Change Password and Continue</span><span class="ja">パスワードを変更して続行</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

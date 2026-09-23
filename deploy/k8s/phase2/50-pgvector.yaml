@@ -1,0 +1,62 @@
+# Phase 2: pgvector（ベクター層）。§0-4: worker と API の2プロセスが同じベクターストアへ書くため、
+# ファイル方式の Chroma（内部 SQLite・複数プロセス書込が不安）を避け pgvector backend を使う。
+# 関係層は当面 SQLite を単一ノードで共有（WAL+busy_timeout）、ベクターは pgvector（サーバ＝複数クライアント安全）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cynovela-pgvector
+  namespace: cynovela
+  labels: { app: cynovela-pgvector }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: cynovela-pgvector }
+  template:
+    metadata:
+      labels: { app: cynovela-pgvector }
+    spec:
+      containers:
+        - name: pgvector
+          image: docker.io/pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: POSTGRES_DB, value: cynovela }
+            - { name: POSTGRES_USER, value: cynovela }
+            # デモ用途の固定値。秘密は本番では Secret/password_file 経由（cynovela.yaml database.postgres.password_file）。
+            - { name: POSTGRES_PASSWORD, value: cynovela }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            # Phase 3: 関係層を同居させる場合 C ロケール必須（バイト順 collation=SQLite BINARY 一致）。
+            - { name: POSTGRES_INITDB_ARGS, value: "--encoding=UTF8 --locale=C" }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          volumeMounts:
+            - { name: pg-data, mountPath: /var/lib/postgresql/data }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "cynovela", "-d", "cynovela"] }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: pg-data
+          persistentVolumeClaim: { claimName: cynovela-pg-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cynovela-pgvector
+  namespace: cynovela
+spec:
+  selector: { app: cynovela-pgvector }
+  ports:
+    - { name: pg, port: 5432, targetPort: 5432 }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cynovela-pg-data
+  namespace: cynovela
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests: { storage: 2Gi }

@@ -1,0 +1,180 @@
+component,version,declared_license,source,license_file_count,review
+accelerate,1.15.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/accelerate/1.15.0/,1,metadata and bundled notices identified
+aiohappyeyeballs,2.7.1,License :: OSI Approved :: Python Software Foundation License,https://pypi.org/project/aiohappyeyeballs/2.7.1/,1,metadata and bundled notices identified
+aiohttp,3.14.3,Apache-2.0 AND MIT,https://pypi.org/project/aiohttp/3.14.3/,2,metadata and bundled notices identified
+aiosignal,1.4.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/aiosignal/1.4.0/,1,metadata and bundled notices identified
+annotated-doc,0.0.5,MIT,https://pypi.org/project/annotated-doc/0.0.5/,1,metadata and bundled notices identified
+annotated-types,0.8.0,MIT,https://pypi.org/project/annotated-types/0.8.0/,1,metadata and bundled notices identified
+anyio,4.15.1,MIT,https://pypi.org/project/anyio/4.15.1/,1,metadata and bundled notices identified
+APScheduler,3.11.3,License :: OSI Approved :: MIT License,https://pypi.org/project/APScheduler/3.11.3/,1,metadata and bundled notices identified
+attrs,26.1.0,MIT,https://pypi.org/project/attrs/26.1.0/,1,metadata and bundled notices identified
+bcrypt,5.0.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/bcrypt/5.0.0/,1,metadata and bundled notices identified
+beautifulsoup4,4.15.0,License :: OSI Approved :: MIT License,https://pypi.org/project/beautifulsoup4/4.15.0/,2,metadata and bundled notices identified
+blis,1.3.3,License :: OSI Approved :: BSD License,https://pypi.org/project/blis/1.3.3/,1,metadata and bundled notices identified
+build,1.6.1,MIT,https://pypi.org/project/build/1.6.1/,1,metadata and bundled notices identified
+catalogue,2.0.10,License :: OSI Approved :: MIT License,https://pypi.org/project/catalogue/2.0.10/,1,metadata and bundled notices identified
+certifi,2026.7.22,License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0),https://pypi.org/project/certifi/2026.7.22/,1,metadata and bundled notices identified
+cffi,2.1.1,MIT-0,https://pypi.org/project/cffi/2.1.1/,1,metadata and bundled notices identified
+charset-normalizer,3.5.1,MIT,https://pypi.org/project/charset-normalizer/3.5.1/,1,metadata and bundled notices identified
+chromadb,1.5.9,License :: OSI Approved :: Apache Software License,https://pypi.org/project/chromadb/1.5.9/,1,metadata and bundled notices identified
+click,8.5.0,BSD-3-Clause,https://pypi.org/project/click/8.5.0/,1,metadata and bundled notices identified
+cloudpathlib,0.25.0,License :: OSI Approved :: MIT License,https://pypi.org/project/cloudpathlib/0.25.0/,1,metadata and bundled notices identified
+cloudpickle,3.1.2,License :: OSI Approved :: BSD License,https://pypi.org/project/cloudpickle/3.1.2/,1,metadata and bundled notices identified
+confection,1.3.3,License :: OSI Approved :: MIT License,https://pypi.org/project/confection/1.3.3/,1,metadata and bundled notices identified
+cryptography,48.0.1,Apache-2.0 OR BSD-3-Clause,https://pypi.org/project/cryptography/48.0.1/,3,metadata and bundled notices identified
+cymem,2.0.13,License :: OSI Approved :: MIT License,https://pypi.org/project/cymem/2.0.13/,1,metadata and bundled notices identified
+datasets,5.0.1,License :: OSI Approved :: Apache Software License,https://pypi.org/project/datasets/5.0.1/,2,metadata and bundled notices identified
+Deprecated,1.3.1,License :: OSI Approved :: MIT License,https://pypi.org/project/Deprecated/1.3.1/,1,metadata and bundled notices identified
+dill,0.4.1,License :: OSI Approved :: BSD License,https://pypi.org/project/dill/0.4.1/,1,metadata and bundled notices identified
+durationpy,0.11,MIT,https://pypi.org/project/durationpy/0.11/,1,metadata and bundled notices identified
+en_core_web_sm,3.8.0,MIT,https://pypi.org/project/en_core_web_sm/3.8.0/,4,metadata and bundled notices identified
+et_xmlfile,2.0.0,License :: OSI Approved :: MIT License,https://pypi.org/project/et_xmlfile/2.0.0/,0,metadata and bundled notices identified
+fastapi,0.141.1,MIT,https://pypi.org/project/fastapi/0.141.1/,1,metadata and bundled notices identified
+filelock,3.32.3,MIT,https://pypi.org/project/filelock/3.32.3/,1,metadata and bundled notices identified
+FlagEmbedding,1.4.2,MIT (bundled LICENSE),https://pypi.org/project/FlagEmbedding/1.4.2/,1,metadata and bundled notices identified
+FlashRank,0.2.10,License :: OSI Approved :: Apache Software License,https://pypi.org/project/FlashRank/0.2.10/,1,metadata and bundled notices identified
+flatbuffers,25.12.19,License :: OSI Approved :: Apache Software License,https://pypi.org/project/flatbuffers/25.12.19/,0,metadata and bundled notices identified
+frozenlist,1.8.0,Apache-2.0,https://pypi.org/project/frozenlist/1.8.0/,1,metadata and bundled notices identified
+fsspec,2026.6.0,BSD-3-Clause,https://pypi.org/project/fsspec/2026.6.0/,1,metadata and bundled notices identified
+fugashi,1.5.2,MIT AND BSD-3-Clause,https://pypi.org/project/fugashi/1.5.2/,2,metadata and bundled notices identified
+ginza,5.2.1,MIT,https://pypi.org/project/ginza/5.2.1/,1,metadata and bundled notices identified
+googleapis-common-protos,1.75.3,Apache-2.0,https://pypi.org/project/googleapis-common-protos/1.75.3/,1,metadata and bundled notices identified
+grpcio,1.83.1,Apache-2.0,https://pypi.org/project/grpcio/1.83.1/,1,metadata and bundled notices identified
+h11,0.16.0,License :: OSI Approved :: MIT License,https://pypi.org/project/h11/0.16.0/,1,metadata and bundled notices identified
+hf-xet,1.6.0,Apache-2.0,https://pypi.org/project/hf-xet/1.6.0/,1,metadata and bundled notices identified
+httpcore,1.0.9,BSD-3-Clause,https://pypi.org/project/httpcore/1.0.9/,1,metadata and bundled notices identified
+httptools,0.8.0,MIT,https://pypi.org/project/httptools/0.8.0/,3,metadata and bundled notices identified
+httpx,0.28.1,License :: OSI Approved :: BSD License,https://pypi.org/project/httpx/0.28.1/,1,metadata and bundled notices identified
+httpx-sse,0.4.3,MIT,https://pypi.org/project/httpx-sse/0.4.3/,1,metadata and bundled notices identified
+huggingface_hub,1.31.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/huggingface_hub/1.31.0/,1,metadata and bundled notices identified
+idna,3.19,BSD-3-Clause,https://pypi.org/project/idna/3.19/,1,metadata and bundled notices identified
+importlib_resources,7.1.0,Apache-2.0,https://pypi.org/project/importlib_resources/7.1.0/,1,metadata and bundled notices identified
+ir_datasets,0.6.3,Apache-2.0 (bundled LICENSE; metadata classifier says MIT),https://pypi.org/project/ir_datasets/0.6.3/,1,metadata and bundled notices identified
+ja-ginza,5.2.0,MIT License,https://pypi.org/project/ja-ginza/5.2.0/,0,metadata and bundled notices identified
+ja_core_news_sm,3.8.0,CC BY-SA 4.0,https://pypi.org/project/ja_core_news_sm/3.8.0/,4,metadata and bundled notices identified
+Jinja2,3.1.6,License :: OSI Approved :: BSD License,https://pypi.org/project/Jinja2/3.1.6/,1,metadata and bundled notices identified
+joblib,1.6.0,BSD-3-Clause,https://pypi.org/project/joblib/1.6.0/,1,metadata and bundled notices identified
+jsonschema,4.26.0,MIT,https://pypi.org/project/jsonschema/4.26.0/,1,metadata and bundled notices identified
+jsonschema-specifications,2025.9.1,MIT,https://pypi.org/project/jsonschema-specifications/2025.9.1/,1,metadata and bundled notices identified
+kubernetes,36.0.3,License :: OSI Approved :: Apache Software License,https://pypi.org/project/kubernetes/36.0.3/,1,metadata and bundled notices identified
+limits,5.8.0,MIT,https://pypi.org/project/limits/5.8.0/,1,metadata and bundled notices identified
+lxml,6.1.3,BSD-3-Clause,https://pypi.org/project/lxml/6.1.3/,2,metadata and bundled notices identified
+lz4,4.4.5,License :: OSI Approved :: BSD License,https://pypi.org/project/lz4/4.4.5/,1,metadata and bundled notices identified
+markdown-it-py,4.2.0,License :: OSI Approved :: MIT License,https://pypi.org/project/markdown-it-py/4.2.0/,2,metadata and bundled notices identified
+MarkupSafe,3.0.3,BSD-3-Clause,https://pypi.org/project/MarkupSafe/3.0.3/,1,metadata and bundled notices identified
+mcp,1.28.1,License :: OSI Approved :: MIT License,https://pypi.org/project/mcp/1.28.1/,1,metadata and bundled notices identified
+mdurl,0.1.2,License :: OSI Approved :: MIT License,https://pypi.org/project/mdurl/0.1.2/,1,metadata and bundled notices identified
+mmh3,5.3.0,License :: OSI Approved :: MIT License,https://pypi.org/project/mmh3/5.3.0/,1,metadata and bundled notices identified
+mpmath,1.3.0,License :: OSI Approved :: BSD License,https://pypi.org/project/mpmath/1.3.0/,1,metadata and bundled notices identified
+multidict,6.8.0,Apache License 2.0,https://pypi.org/project/multidict/6.8.0/,1,metadata and bundled notices identified
+multiprocess,0.70.19,License :: OSI Approved :: BSD License,https://pypi.org/project/multiprocess/0.70.19/,2,metadata and bundled notices identified
+murmurhash,1.0.15,License :: OSI Approved :: MIT License,https://pypi.org/project/murmurhash/1.0.15/,1,metadata and bundled notices identified
+narwhals,2.26.0,MIT,https://pypi.org/project/narwhals/2.26.0/,1,metadata and bundled notices identified
+networkx,3.6.1,BSD-3-Clause,https://pypi.org/project/networkx/3.6.1/,1,metadata and bundled notices identified
+numpy,2.4.6,BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0,https://pypi.org/project/numpy/2.4.6/,20,metadata and bundled notices identified
+oauthlib,3.3.1,BSD-3-Clause,https://pypi.org/project/oauthlib/3.3.1/,1,metadata and bundled notices identified
+onnxruntime,1.30.0,License :: OSI Approved :: MIT License,https://pypi.org/project/onnxruntime/1.30.0/,1,metadata and bundled notices identified
+openpyxl,3.1.5,License :: OSI Approved :: MIT License,https://pypi.org/project/openpyxl/3.1.5/,0,metadata and bundled notices identified
+opentelemetry-api,1.44.0,Apache-2.0,https://pypi.org/project/opentelemetry-api/1.44.0/,1,metadata and bundled notices identified
+opentelemetry-exporter-otlp-proto-common,1.44.0,Apache-2.0,https://pypi.org/project/opentelemetry-exporter-otlp-proto-common/1.44.0/,1,metadata and bundled notices identified
+opentelemetry-exporter-otlp-proto-grpc,1.44.0,Apache-2.0,https://pypi.org/project/opentelemetry-exporter-otlp-proto-grpc/1.44.0/,1,metadata and bundled notices identified
+opentelemetry-proto,1.44.0,Apache-2.0,https://pypi.org/project/opentelemetry-proto/1.44.0/,1,metadata and bundled notices identified
+opentelemetry-sdk,1.44.0,Apache-2.0,https://pypi.org/project/opentelemetry-sdk/1.44.0/,1,metadata and bundled notices identified
+opentelemetry-semantic-conventions,0.65b0,Apache-2.0,https://pypi.org/project/opentelemetry-semantic-conventions/0.65b0/,1,metadata and bundled notices identified
+orjson,3.12.0,MPL-2.0 AND (Apache-2.0 OR MIT),https://pypi.org/project/orjson/3.12.0/,3,metadata and bundled notices identified
+overrides,7.7.0,"Apache License, Version 2.0",https://pypi.org/project/overrides/7.7.0/,1,metadata and bundled notices identified
+packaging,26.3,Apache-2.0 OR BSD-2-Clause,https://pypi.org/project/packaging/26.3/,5,metadata and bundled notices identified
+pandas,3.0.5,License :: OSI Approved :: BSD License,https://pypi.org/project/pandas/3.0.5/,1,metadata and bundled notices identified
+pdfminer.six,20260107,MIT,https://pypi.org/project/pdfminer.six/20260107/,1,metadata and bundled notices identified
+pdfplumber,0.11.10,License :: OSI Approved :: MIT License,https://pypi.org/project/pdfplumber/0.11.10/,1,metadata and bundled notices identified
+peft,0.20.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/peft/0.20.0/,1,metadata and bundled notices identified
+phonenumbers,9.0.39,Apache-2.0,https://pypi.org/project/phonenumbers/9.0.39/,1,metadata and bundled notices identified
+pillow,12.3.0,MIT-CMU,https://pypi.org/project/pillow/12.3.0/,1,metadata and bundled notices identified
+pip,26.2.1,MIT,https://pypi.org/project/pip/26.2.1/,44,metadata and bundled notices identified
+plac,1.4.7,License :: OSI Approved :: BSD License,https://pypi.org/project/plac/1.4.7/,1,metadata and bundled notices identified
+preshed,3.0.13,License :: OSI Approved :: MIT License,https://pypi.org/project/preshed/3.0.13/,1,metadata and bundled notices identified
+presidio_analyzer,2.2.364,MIT,https://pypi.org/project/presidio_analyzer/2.2.364/,5,metadata and bundled notices identified
+presidio_anonymizer,2.2.364,MIT,https://pypi.org/project/presidio_anonymizer/2.2.364/,0,metadata and bundled notices identified
+prometheus-fastapi-instrumentator,8.1.0,ISC (bundled LICENSE),https://pypi.org/project/prometheus-fastapi-instrumentator/8.1.0/,1,metadata and bundled notices identified
+prometheus_client,0.26.0,Apache-2.0 AND BSD-2-Clause,https://pypi.org/project/prometheus_client/0.26.0/,2,metadata and bundled notices identified
+propcache,0.5.2,License :: OSI Approved :: Apache Software License,https://pypi.org/project/propcache/0.5.2/,2,metadata and bundled notices identified
+protobuf,7.36.1,3-Clause BSD License,https://pypi.org/project/protobuf/7.36.1/,1,metadata and bundled notices identified
+psutil,7.2.2,BSD-3-Clause,https://pypi.org/project/psutil/7.2.2/,1,metadata and bundled notices identified
+psycopg,3.3.5,LGPL-3.0-only,https://pypi.org/project/psycopg/3.3.5/,1,metadata and bundled notices identified
+psycopg-binary,3.3.5,LGPL-3.0-only,https://pypi.org/project/psycopg-binary/3.3.5/,1,metadata and bundled notices identified
+psycopg-pool,3.3.1,LGPL-3.0-only,https://pypi.org/project/psycopg-pool/3.3.1/,1,metadata and bundled notices identified
+pyarrow,25.0.1,Apache-2.0,https://pypi.org/project/pyarrow/25.0.1/,2,metadata and bundled notices identified
+pybase64,1.5.0,BSD-2-Clause,https://pypi.org/project/pybase64/1.5.0/,4,metadata and bundled notices identified
+pycparser,3.0,BSD-3-Clause,https://pypi.org/project/pycparser/3.0/,1,metadata and bundled notices identified
+pydantic,2.13.5,MIT,https://pypi.org/project/pydantic/2.13.5/,1,metadata and bundled notices identified
+pydantic-settings,2.15.0,MIT,https://pypi.org/project/pydantic-settings/2.15.0/,1,metadata and bundled notices identified
+pydantic_core,2.46.5,MIT,https://pypi.org/project/pydantic_core/2.46.5/,1,metadata and bundled notices identified
+Pygments,2.21.0,BSD-2-Clause,https://pypi.org/project/Pygments/2.21.0/,2,metadata and bundled notices identified
+PyJWT,2.14.0,MIT,https://pypi.org/project/PyJWT/2.14.0/,2,metadata and bundled notices identified
+pypdf,6.18.1,BSD-3-Clause,https://pypi.org/project/pypdf/6.18.1/,1,metadata and bundled notices identified
+pypdfium2,5.13.0,"BSD-3-Clause, Apache-2.0, dependency licenses",https://pypi.org/project/pypdfium2/5.13.0/,19,metadata and bundled notices identified
+PyPika,0.51.1,License :: OSI Approved :: Apache Software License,https://pypi.org/project/PyPika/0.51.1/,1,metadata and bundled notices identified
+pyproject_hooks,1.2.0,License :: OSI Approved :: MIT License,https://pypi.org/project/pyproject_hooks/1.2.0/,1,metadata and bundled notices identified
+python-dateutil,2.9.0.post0,License :: OSI Approved :: BSD License; License :: OSI Approved :: Apache Software License,https://pypi.org/project/python-dateutil/2.9.0.post0/,1,metadata and bundled notices identified
+python-docx,1.2.0,License :: OSI Approved :: MIT License,https://pypi.org/project/python-docx/1.2.0/,1,metadata and bundled notices identified
+python-dotenv,1.2.3,BSD-3-Clause,https://pypi.org/project/python-dotenv/1.2.3/,1,metadata and bundled notices identified
+python-multipart,0.0.32,Apache-2.0,https://pypi.org/project/python-multipart/0.0.32/,1,metadata and bundled notices identified
+python-pptx,1.0.2,License :: OSI Approved :: MIT License,https://pypi.org/project/python-pptx/1.0.2/,1,metadata and bundled notices identified
+PyYAML,6.0.3,License :: OSI Approved :: MIT License,https://pypi.org/project/PyYAML/6.0.3/,1,metadata and bundled notices identified
+rank-bm25,0.2.2,Apache2.0,https://pypi.org/project/rank-bm25/0.2.2/,1,metadata and bundled notices identified
+redis,8.1.0,MIT,https://pypi.org/project/redis/8.1.0/,1,metadata and bundled notices identified
+referencing,0.37.0,MIT,https://pypi.org/project/referencing/0.37.0/,1,metadata and bundled notices identified
+regex,2026.9.10,Apache-2.0 AND CNRI-Python,https://pypi.org/project/regex/2026.9.10/,1,metadata and bundled notices identified
+requests,2.34.2,License :: OSI Approved :: Apache Software License,https://pypi.org/project/requests/2.34.2/,2,metadata and bundled notices identified
+requests-file,3.0.1,License :: OSI Approved :: Apache Software License,https://pypi.org/project/requests-file/3.0.1/,1,metadata and bundled notices identified
+requests-oauthlib,2.0.0,ISC (bundled LICENSE; metadata classifier says BSD),https://pypi.org/project/requests-oauthlib/2.0.0/,1,metadata and bundled notices identified
+rich,15.0.0,License :: OSI Approved :: MIT License,https://pypi.org/project/rich/15.0.0/,1,metadata and bundled notices identified
+rpds-py,2026.6.3,MIT,https://pypi.org/project/rpds-py/2026.6.3/,1,metadata and bundled notices identified
+safetensors,0.8.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/safetensors/0.8.0/,1,metadata and bundled notices identified
+scikit-learn,1.9.1,BSD-3-Clause,https://pypi.org/project/scikit-learn/1.9.1/,3,metadata and bundled notices identified
+scipy,1.18.1,License :: OSI Approved :: BSD License,https://pypi.org/project/scipy/1.18.1/,5,metadata and bundled notices identified
+sentence-transformers,5.7.0,Apache-2.0,https://pypi.org/project/sentence-transformers/5.7.0/,2,metadata and bundled notices identified
+sentencepiece,0.2.2,Apache-2.0,https://pypi.org/project/sentencepiece/0.2.2/,0,metadata and bundled notices identified
+setuptools,84.0.0,MIT,https://pypi.org/project/setuptools/84.0.0/,19,metadata and bundled notices identified
+shellingham,1.5.4,License :: OSI Approved :: ISC License (ISCL),https://pypi.org/project/shellingham/1.5.4/,1,metadata and bundled notices identified
+six,1.17.0,License :: OSI Approved :: MIT License,https://pypi.org/project/six/1.17.0/,1,metadata and bundled notices identified
+slowapi,0.1.10,License :: OSI Approved :: MIT License,https://pypi.org/project/slowapi/0.1.10/,1,metadata and bundled notices identified
+smart_open,8.0.1,License :: OSI Approved :: MIT License,https://pypi.org/project/smart_open/8.0.1/,1,metadata and bundled notices identified
+soupsieve,2.9.2,MIT,https://pypi.org/project/soupsieve/2.9.2/,1,metadata and bundled notices identified
+spacy,3.8.16,License :: OSI Approved :: MIT License,https://pypi.org/project/spacy/3.8.16/,2,metadata and bundled notices identified
+spacy-legacy,3.0.12,License :: OSI Approved :: MIT License,https://pypi.org/project/spacy-legacy/3.0.12/,1,metadata and bundled notices identified
+spacy-loggers,1.0.5,MIT,https://pypi.org/project/spacy-loggers/1.0.5/,1,metadata and bundled notices identified
+sqlglot,30.11.0,MIT,https://pypi.org/project/sqlglot/30.11.0/,1,metadata and bundled notices identified
+srsly,2.5.3,License :: OSI Approved :: MIT License,https://pypi.org/project/srsly/2.5.3/,1,metadata and bundled notices identified
+sse-starlette,3.4.11,BSD-3-Clause,https://pypi.org/project/sse-starlette/3.4.11/,2,metadata and bundled notices identified
+starlette,1.3.1,BSD-3-Clause,https://pypi.org/project/starlette/1.3.1/,1,metadata and bundled notices identified
+SudachiDict-core,20260723,Apache-2.0,https://pypi.org/project/SudachiDict-core/20260723/,1,metadata and bundled notices identified
+SudachiPy,0.6.11,Apache-2.0,https://pypi.org/project/SudachiPy/0.6.11/,0,metadata and bundled notices identified
+sympy,1.14.0,License :: OSI Approved :: BSD License,https://pypi.org/project/sympy/1.14.0/,3,metadata and bundled notices identified
+tenacity,9.1.4,License :: OSI Approved :: Apache Software License,https://pypi.org/project/tenacity/9.1.4/,1,metadata and bundled notices identified
+thinc,8.3.13,License :: OSI Approved :: MIT License,https://pypi.org/project/thinc/8.3.13/,1,metadata and bundled notices identified
+threadpoolctl,3.6.0,License :: OSI Approved :: BSD License,https://pypi.org/project/threadpoolctl/3.6.0/,1,metadata and bundled notices identified
+tldextract,5.3.2,BSD-3-Clause,https://pypi.org/project/tldextract/5.3.2/,1,metadata and bundled notices identified
+tokenizers,0.23.2,License :: OSI Approved :: Apache Software License,https://pypi.org/project/tokenizers/0.23.2/,0,metadata and bundled notices identified
+torch,2.14.0+cpu,Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT,https://pypi.org/project/torch/2.14.0+cpu/,90,metadata and bundled notices identified
+tqdm,4.70.1,MPL-2.0 AND MIT,https://pypi.org/project/tqdm/4.70.1/,1,metadata and bundled notices identified
+transformers,5.17.0,Apache 2.0 License,https://pypi.org/project/transformers/5.17.0/,1,metadata and bundled notices identified
+typer,0.27.2,MIT,https://pypi.org/project/typer/0.27.2/,2,metadata and bundled notices identified
+typing-inspection,0.4.4,MIT,https://pypi.org/project/typing-inspection/0.4.4/,1,metadata and bundled notices identified
+typing_extensions,4.16.0,PSF-2.0,https://pypi.org/project/typing_extensions/4.16.0/,1,metadata and bundled notices identified
+tzlocal,5.4.4,MIT,https://pypi.org/project/tzlocal/5.4.4/,1,metadata and bundled notices identified
+unidic-lite,1.0.8,License :: OSI Approved :: MIT License,https://pypi.org/project/unidic-lite/1.0.8/,3,metadata and bundled notices identified
+urllib3,2.7.0,MIT,https://pypi.org/project/urllib3/2.7.0/,1,metadata and bundled notices identified
+uvicorn,0.38.0,BSD-3-Clause,https://pypi.org/project/uvicorn/0.38.0/,1,metadata and bundled notices identified
+uvloop,0.22.1,License :: OSI Approved :: Apache Software License; License :: OSI Approved :: MIT License,https://pypi.org/project/uvloop/0.22.1/,2,metadata and bundled notices identified
+wasabi,1.1.3,MIT,https://pypi.org/project/wasabi/1.1.3/,1,metadata and bundled notices identified
+watchdog,6.0.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/watchdog/6.0.0/,2,metadata and bundled notices identified
+watchfiles,1.2.0,License :: OSI Approved :: MIT License,https://pypi.org/project/watchfiles/1.2.0/,1,metadata and bundled notices identified
+weasel,1.0.0,License :: OSI Approved :: MIT License,https://pypi.org/project/weasel/1.0.0/,1,metadata and bundled notices identified
+websocket-client,1.9.2,Apache-2.0,https://pypi.org/project/websocket-client/1.9.2/,1,metadata and bundled notices identified
+websockets,17.1,BSD-3-Clause,https://pypi.org/project/websockets/17.1/,1,metadata and bundled notices identified
+wheel,0.48.0,MIT,https://pypi.org/project/wheel/0.48.0/,1,metadata and bundled notices identified
+wrapt,2.4.1,BSD-2-Clause,https://pypi.org/project/wrapt/2.4.1/,1,metadata and bundled notices identified
+xlsxwriter,3.2.9,License :: OSI Approved :: BSD License,https://pypi.org/project/xlsxwriter/3.2.9/,1,metadata and bundled notices identified
+xxhash,4.0.1,BSD-2-Clause,https://pypi.org/project/xxhash/4.0.1/,1,metadata and bundled notices identified
+yarl,1.24.5,Apache-2.0,https://pypi.org/project/yarl/1.24.5/,2,metadata and bundled notices identified

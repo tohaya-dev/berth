@@ -1,0 +1,28 @@
+Cynovela デモドキュメント (p25-col 用)
+
+このファイルは Adaptive RAG / Contextual Chunking / ACL のデモを行うための
+サンプル製品ドキュメントです。
+
+# 製品概要
+Cynovela は社内ドキュメントを横断検索するためのプライベート RAG パイプラインです。
+ローカル LLM (LM Studio) と完全ローカルのベクター検索 (ChromaDB) を組み合わせ、
+社外にデータを送信せずに高品質な質問応答を提供します。
+
+# 主な機能
+- セマンティック検索 (ベクター + BM25 ハイブリッド)
+- ロールベースACL (admin / sales / finance / engineer)
+- PII 自動検出・マスキング (Guardrails)
+- メタデータエンジン (LLM不使用ルールベース分類)
+- Contextual Chunking (Anthropic 提案手法)
+- Adaptive RAG (Basic / Agentic 自動切替)
+- 監査ログ・コンプライアンスレポート
+
+# 使い方
+1. Source としてローカルフォルダを登録
+2. Workspace でアクセス境界を設定
+3. Collection でファイルをグルーピング
+4. Publish で RAG 検索対象に
+5. RAG Chat で自然言語で質問
+
+# 連絡先
+担当: Cynovela チーム

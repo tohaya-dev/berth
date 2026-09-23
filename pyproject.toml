@@ -1,0 +1,193 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    "tests/",
+    "data/",
+    "frontend/",
+    ".git",
+    "__pycache__",
+    "reports/",
+]
+
+[tool.ruff.lint]
+# 既存コードへの影響を最小化。最初は安全なルールのみ。
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # line too long: 既存コードで多発する可能性
+
+[tool.ruff.format]
+quote-style = "double"
+
+# Stage-3-B: 既存 436 件の違反を per-file-ignores で抑制し、
+# pre-commit ゲートを exit 0 で機能させる（新規違反のみ検出）。
+# F821 (asyncio 未定義) は routers/chat.py:484 で個別修正済み。
+# 既存違反の段階的修正は Phase 3 以降の通常運用で実施。
+[tool.ruff.lint.per-file-ignores]
+"adaptive_rag.py" = ["F401", "I001"]
+"alert_engine.py" = ["F401"]
+"classifier.py" = ["I001"]
+"config.py" = ["I001"]
+"core/audit.py" = ["I001"]
+"core/auth.py" = ["I001"]
+"core/chat_helpers.py" = ["F401", "I001"]
+"core/constants.py" = ["I001"]
+"core/llm.py" = ["E402", "I001"]
+"db.py" = ["I001"]
+"eval/run_full_eval.py" = ["I001"]
+"guardrail.py" = ["E702", "F401"]
+"llm_adapter.py" = ["I001"]
+"mcp_server.py" = ["E401", "E402", "E741", "I001"]
+"metadata_engine.py" = ["I001"]
+"pipeline_types.py" = ["I001"]
+"providers/__init__.py" = ["I001"]
+"providers/circuit_breaker.py" = ["I001"]
+"providers/classifier.py" = ["I001"]
+"providers/data_source.py" = ["I001"]
+"providers/document_parser.py" = ["F401", "I001"]
+"providers/embedding.py" = ["I001"]
+"providers/registry.py" = ["I001"]
+"providers/reranker.py" = ["I001"]
+"providers/vector_store.py" = ["I001"]
+"providers/vlm.py" = ["E401", "I001"]
+"rag.py" = ["E401", "E402", "E701", "E702", "F401", "F841", "I001"]
+"routers/admin.py" = ["F401", "I001"]
+"routers/agent.py" = ["I001"]
+"routers/archived.py" = ["I001"]
+"routers/audit_logs.py" = ["I001"]
+"routers/auth.py" = ["I001"]
+"routers/catalog.py" = ["F401", "I001"]
+"routers/chat.py" = ["E401", "E402", "E702", "F401", "F541", "F841", "I001"]
+"routers/collections.py" = ["I001"]
+"routers/compliance.py" = ["I001"]
+"routers/dashboard.py" = ["I001"]
+"routers/demo.py" = ["I001"]
+"routers/features.py" = ["I001"]
+"routers/feedback.py" = ["I001"]
+"routers/files.py" = ["I001"]
+"routers/guardrails.py" = ["I001"]
+"routers/health.py" = ["I001"]
+"routers/jobs.py" = ["I001"]
+"routers/llm.py" = ["I001"]
+"routers/messages.py" = ["I001"]
+"routers/pages.py" = ["I001"]
+"routers/pipeline_config.py" = ["I001"]
+"routers/policies.py" = ["I001"]
+"routers/reports.py" = ["I001"]
+"routers/sessions.py" = ["I001"]
+"routers/settings.py" = ["I001"]
+"routers/sources.py" = ["I001"]
+"routers/stats.py" = ["I001"]
+"routers/users.py" = ["I001"]
+"routers/workspaces.py" = ["I001"]
+"scripts/check_js_refs.py" = ["F541"]
+"scripts/gen_test_data.py" = ["F401", "F541"]
+"scripts/security/test_security_baseline.py" = ["F401", "I001"]
+"scripts/test_adapters.py" = ["I001"]
+"scripts/test_additional_v3.py" = ["F401"]
+"scripts/test_all_endpoints.py" = ["E741", "F401"]
+"scripts/test_api_spec_v3.py" = ["E401", "F401", "I001"]
+"scripts/test_b1_api.py" = ["I001"]
+"scripts/test_b4_edge.py" = ["E702", "F401"]
+"scripts/test_b6_codeblock.py" = ["E401", "I001"]
+"scripts/test_b6_ui_layout.py" = ["I001"]
+"scripts/test_b7_server_new.py" = ["F401", "I001"]
+"scripts/test_b9_hybrid_search.py" = ["I001"]
+"scripts/test_button_bugs_v3.py" = ["E401", "F401", "F541", "I001"]
+"scripts/test_comprehensive_e2e.py" = ["E741"]
+"scripts/test_d1_perf.py" = ["F401", "F841"]
+"scripts/test_edge_cases.py" = ["F401"]
+"scripts/test_evaluator.py" = ["F401"]
+"scripts/test_gui.py" = ["E702", "F401", "F541"]
+"scripts/test_gui_integration.py" = ["E702", "F541"]
+"scripts/test_gui_recovery.py" = ["E702", "F541"]
+"scripts/test_hc10_data_consistency.py" = ["E401", "I001"]
+"scripts/test_hc1_startup.py" = ["E401", "F401", "I001"]
+"scripts/test_hc2_database.py" = ["E401", "I001"]
+"scripts/test_hc3_auth_session.py" = ["E401", "F401", "I001"]
+"scripts/test_hc4_filesystem.py" = ["E401", "I001"]
+"scripts/test_hc5_settings.py" = ["E401", "I001"]
+"scripts/test_hc6_background.py" = ["E401", "F841", "I001"]
+"scripts/test_hc7_api_coverage.py" = ["E401", "I001"]
+"scripts/test_hc8_crud.py" = ["E401", "F401", "I001"]
+"scripts/test_hc9_frontend.py" = ["E401", "F401", "I001"]
+"scripts/test_hybrid_search.py" = ["I001"]
+"scripts/test_i18n_display_v3.py" = ["E741"]
+"scripts/test_live_rag.py" = ["E701", "F401", "F841", "I001"]
+"scripts/test_mcp.py" = ["I001"]
+"scripts/test_p4_p5.py" = ["F401", "I001"]
+"scripts/test_pipeline_integrity_v3.py" = ["E401", "F401", "I001"]
+"scripts/test_rag_quality_comprehensive.py" = ["I001"]
+"scripts/test_role_rag_v3.py" = ["E401", "F401", "I001"]
+"scripts/test_static.py" = ["E702", "F541"]
+"scripts/test_v10_guardrail_rag.py" = ["F401", "F841", "I001"]
+"scripts/test_v11_audit_completeness.py" = ["I001"]
+"scripts/test_v12_concurrent.py" = ["F401", "I001"]
+"scripts/test_v4_rag_quality.py" = ["I001"]
+"scripts/test_v4b_rag_chunking.py" = ["F401", "I001"]
+"scripts/test_v4c_rag_retrieval_quality.py" = ["F401", "I001"]
+"scripts/test_v4d_rag_boundary.py" = ["I001"]
+"scripts/test_va_pipeline.py" = ["E401", "F401", "I001"]
+"scripts/test_vb_live_rag.py" = ["E401", "F401", "F841", "I001"]
+"scripts/test_vc_roles.py" = ["E401", "I001"]
+"scripts/test_vd_errors_and_alerts.py" = ["E401", "F401", "I001"]
+"scripts/test_ve_api_contracts.py" = ["E401", "F401", "I001"]
+"scripts/test_vf3_i18n_complete.py" = ["I001"]
+"scripts/test_vf4_i18n_runtime.py" = ["F401", "F841", "I001"]
+"scripts/test_vf5_display_critical.py" = ["I001"]
+"scripts/test_vf_i18n_deep.py" = ["E401", "F401", "I001"]
+"scripts/test_vg_static_resources.py" = ["E401", "F401", "I001"]
+"server.py" = ["E402", "E702", "F401", "F541", "F841", "I001"]
+"services/agent_runtime.py" = ["I001"]
+"services/event_bus.py" = ["E741", "F401", "I001"]
+"services/listeners.py" = ["E731", "I001"]
+"services/rag_strategies.py" = ["F401"]
+"utils/classification_engine.py" = ["I001"]
+"utils/metadata_engine.py" = ["F401", "I001"]
+"utils/pii_detector.py" = ["F401"]
+"utils/report_generator.py" = ["I001"]
+"utils/tokenizer.py" = ["I001"]
+
+[tool.pyright]
+# Stage-3-E: agent.py は既に存在しない（cynovela_agent.py に置換済み）ため include から除外
+include = ["server.py", "db.py", "rag.py", "chunker.py", "cynovela_agent.py", "config.py"]
+exclude = ["tests/", "data/", "frontend/", "reports/"]
+typeCheckingMode = "basic"
+reportMissingImports = "warning"
+reportGeneralTypeIssues = "warning"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --reruns 0 -rR"
+xfail_strict = true
+# FIX-132: pytest-anyio を auto mode で導入。`pytestmark = pytest.mark.anyio`
+# を付けたモジュールの async test を anyio が自動収集する。
+anyio_mode = "auto"
+markers = [
+    "live: tests requiring live server (--demo mode)",
+    "slow: tests that include real LLM round trips (require loaded LM Studio model)",
+    "schemathesis: auto-generated API tests",
+    "no_lm_studio: tests that don't need LM Studio (run regardless of model load state)",
+]
+# Stage-D #6: hypothesis の .example() 直接呼びによる
+# NonInteractiveExampleWarning を抑止する。tests/fixtures/test_fixtures_smoke.py
+# 内に残存する .example() コールが warning=error と衝突しないように。
+filterwarnings = [
+    "ignore::hypothesis.errors.NonInteractiveExampleWarning",
+]
+
+[project]
+name = "cynovela-v13-verify"
+version = "0.0.0"
+description = "Cynovela v13 verification project (internal)"
+requires-python = ">=3.12"  # fixall-B2 20260602: environment.yml が python=3.12.13 を固定。検証runtimeは3.12系
+
+[project.optional-dependencies]
+test = [
+    "freezegun>=1.4.0",
+    "hypothesis>=6.100.0",
+    "opentelemetry-sdk>=1.25.0",
+    "schemathesis>=4.0",
+    "syrupy>=5.0",
+    "pytest-rerunfailures>=14.0",
+]

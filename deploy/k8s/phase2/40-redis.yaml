@@ -1,0 +1,56 @@
+# Phase 2: Redis（ジョブキュー）— AOF 永続化。
+# ジョブは「取得→処理→完了で ack／worker クラッシュで未ack を reaper 再配送」の at-least-once。
+# AOF により Redis 再起動後も pending/processing が残る（ジョブ消失なし）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cynovela-redis
+  namespace: cynovela
+  labels: { app: cynovela-redis }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: cynovela-redis }
+  template:
+    metadata:
+      labels: { app: cynovela-redis }
+    spec:
+      containers:
+        - name: redis
+          image: docker.io/library/redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          # appendonly yes = AOF 永続化（再起動でジョブを失わない）。
+          args: ["redis-server", "--appendonly", "yes", "--dir", "/data"]
+          ports:
+            - { name: redis, containerPort: 6379 }
+          volumeMounts:
+            - { name: redis-data, mountPath: /data }
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim: { claimName: cynovela-redis-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cynovela-redis
+  namespace: cynovela
+spec:
+  selector: { app: cynovela-redis }
+  ports:
+    - { name: redis, port: 6379, targetPort: 6379 }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cynovela-redis-data
+  namespace: cynovela
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests: { storage: 1Gi }

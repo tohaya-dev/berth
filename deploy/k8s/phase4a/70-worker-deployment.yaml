@@ -1,0 +1,67 @@
+# Phase 4a (k3d load): worker Deployment（server.py --mode worker）。
+#   本体イメージ同一・MODE 違い。Redis キューを信頼配送で消費。
+#   backend=postgres のため関係層は Postgres（CYNOVELA_DB は backend=postgres 時に不参照）。
+#   worker.embedding_mode=minimal（ConfigMap）= TF-IDF・bge-m3 をロードしない（16GB VM のメモリ余裕確保）。
+#   RWO SQLite PVC を持たず emptyDir/コンテナ層のみ => ノード分散可能。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cynovela-worker
+  namespace: cynovela
+  labels: { app: cynovela-worker }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: cynovela-worker }
+  template:
+    metadata:
+      labels: { app: cynovela-worker }
+    spec:
+      terminationGracePeriodSeconds: 180
+      # nonroot-20260922: same fixed non-root identity as the API pod (Containerfile APP_UID/APP_GID=10001).
+      #   fsGroup does not apply to hostPath; the read-only hostPath volumes must be world-readable on the node.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: cynovela-worker }
+      containers:
+        - name: worker
+          # DD-CYN-0115 Phase5: 現ソースで作り直したイメージへ入れ替え (旧 ga-20260720 は温存)
+          image: localhost/cynovela-hansolo:dd0116h
+          imagePullPolicy: Never
+          # nonroot-20260922: no privilege escalation, no capabilities. readOnlyRootFilesystem is not set
+          #   (worker writes /app/store/{vector,logs,...} in the container layer and /tmp; see 20-api-deployment.yaml).
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          command: ["/bin/sh", "-c", "exec python server.py --mode worker"]
+          env:
+            - name: CYNOVELA_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: cynovela-secret, key: secret_key } }
+            # DD-CYN-0115 M-10: Pod 内時計の文字化がずれないよう機材の時間帯を渡す (姉妹系統の DD-CYN-0086 の K8s 読み替え)
+            - { name: TZ, value: "Asia/Tokyo" }
+          volumeMounts:
+            - { name: config, mountPath: /app/cynovela.yaml, subPath: cynovela.yaml }
+            - { name: models, mountPath: /app/store/models, readOnly: true }
+            # DD-CYN-0115 R-2: 取り込みフォルダ (API と同じ口。scan は worker でも走るため両方に)
+            - { name: ingest, mountPath: /app/ingest, readOnly: true }
+          resources:
+            requests: { cpu: "250m", memory: "768Mi" }
+            limits: { memory: "6Gi" }  # DD-CYN-0143 K-1: 稼働実効値 (DD-CYN-0136 手パッチ) を正本へ
+      volumes:
+        - name: config
+          configMap: { name: cynovela-config }
+        - name: models
+          hostPath: { path: /var/lib/cynovela-models/models, type: Directory }
+        # DD-CYN-0115 R-2: 取り込みフォルダ (API と同じ hostPath)
+        - name: ingest
+          hostPath: { path: /var/lib/cynovela-ingest, type: Directory }
+        # ga-close-v3 PartA (2026-07-27): uploads の共有 bind を廃止 (受け口撤去に伴い不要)。
