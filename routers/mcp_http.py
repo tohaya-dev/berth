@@ -32,7 +32,6 @@ import json
 import os
 
 import requests
-from urllib.parse import quote as _quote
 from fastapi import APIRouter, HTTPException, Request
 
 from core.auth import _require_authenticated
@@ -673,11 +672,6 @@ def _scope_check(request: Request, args: dict) -> None:
         for _c in _cols:
             if _c not in col_allow:
                 raise HTTPException(403, f"この鍵はコレクション {_c} の範囲外です")
-        # agentK K-2 (q5 B2): search_across_collections に collection_ids: [] を渡すと
-        # 本体 /api/chat が「WS 内全件」へ広げていた。名指しが空なら scope の集合を
-        # 引数に書き戻し、転送先でも範囲内に閉じる (本体側 enforce_api_key_scope でも同じ判定)。
-        if "collection_ids" in args and not (args.get("collection_ids") or []):
-            args["collection_ids"] = [str(c) for c in col_allow if c]
 
 
 def _forward(method: str, path: str, token: str, json_body=None, timeout: float = 120.0):
@@ -780,13 +774,6 @@ def _dispatch_tool(request: Request, user: dict, token: str, name: str, args: di
     is_api_key = bool(getattr(request.state, "api_key_id", None))
     if is_api_key and not tdef["external"]:
         return _structured(f"用途限定の鍵では道具 {name} は使えません", is_error=True)
-    # agentK K-3 (q5 B3): 鍵の scope.tools は tools/list (_visible_tools) でしか効いておらず、
-    # 一覧に出ない道具も tools/call で名指しすれば実行できた。呼び出し時にも同じ集合で絞る。
-    if is_api_key:
-        _kscope = getattr(request.state, "api_key_scope", None)
-        _ktools = _kscope.get("tools") if isinstance(_kscope, dict) else None
-        if _ktools and name not in _ktools:
-            return _structured(f"この鍵では道具 {name} は使えません (scope.tools の範囲外)", is_error=True)
 
     try:
         if name in ("search_collection", "search_across_collections", "rag_general"):
@@ -850,18 +837,9 @@ def _dispatch_tool(request: Request, user: dict, token: str, name: str, args: di
             return _structured(json.dumps(r.json(), ensure_ascii=False, indent=2))
 
         if name == "get_collection_info":
-            if role == "admin":
-                r = _forward("GET", f"/api/collections/{_quote(str(args['collection_id']), safe='')}", token, timeout=15)
-                r.raise_for_status()
-                return _structured(json.dumps(r.json(), ensure_ascii=False, indent=2))
-            # berth-ga-final-cleanup (q5 B12): GET /api/collections/{id} は admin 限定のため、viewer・鍵では
-            # 所属・機密区分・allowed_roles で絞り込み済みの一覧から該当 1 件を返す (全資格で利用可の約束を守る)。
-            r = _forward("GET", f"/api/collections?workspace_id={_quote(str(args['workspace_id']), safe='')}", token, timeout=15)
+            r = _forward("GET", f"/api/collections/{args['collection_id']}", token, timeout=15)
             r.raise_for_status()
-            _hit = next((c for c in (r.json() or []) if str(c.get("id")) == str(args["collection_id"])), None)
-            if _hit is None:
-                return _structured(f"コレクション {args['collection_id']} は見つからないか、閲覧できません", is_error=True)
-            return _structured(json.dumps(_hit, ensure_ascii=False, indent=2))
+            return _structured(json.dumps(r.json(), ensure_ascii=False, indent=2))
 
         if name == "list_sources":
             r = _forward("GET", f"/api/sources?workspace_id={args['workspace_id']}", token, timeout=15)

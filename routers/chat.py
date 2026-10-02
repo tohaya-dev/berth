@@ -1120,11 +1120,8 @@ async def chat(request: Request):
         raise HTTPException(413, "query は 4000 文字以下にしてください")
     workspace_id = body.get("workspace_id")
     # DD-CYN-0136 2-6: 用途限定の鍵の scope を API 層でも強制 (MCP 層と同じ判定)
-    # agentK K-2 (q5 B2): 返り値 = 実効コレクション (名指しが空で scope.collections が
-    # 有る鍵は scope の集合)。body に書き戻し、後段の _narrow_to_requested_collections が
-    # 「WS 内全件」へ広げないようにする。
     from core.auth import enforce_api_key_scope as _eaks
-    body["collection_ids"] = _eaks(request, workspace_id, body.get("collection_ids") or [])
+    _eaks(request, workspace_id, body.get("collection_ids") or [])
     # #06: 詳細設定がある場合は temperature / params を上書き
     _set_temp, _set_params = _get_llm_params_overrides(temperature_default=0.1)
     temperature = float(body.get("temperature") if body.get("temperature") is not None else _set_temp)
@@ -2272,8 +2269,7 @@ async def chat_compare(request: Request):
     query = body.get("query") or body.get("message") or ""
     workspace_id = body.get("workspace_id") or ""
     from core.auth import enforce_api_key_scope as _eaks_cc
-    # agentK K-2 (q5 B2): 実効コレクションを body に書き戻す (/api/chat と同型)
-    body["collection_ids"] = _eaks_cc(request, workspace_id, body.get("collection_ids") or [])
+    _eaks_cc(request, workspace_id, body.get("collection_ids") or [])
     model_a = body.get("model_a") or "lmstudio_local"
     model_b = body.get("model_b") or "mock_b"
     # #06: 詳細設定の temperature / params を上書き (model_a 用は llm.*)
@@ -2571,8 +2567,7 @@ async def rag_query(request: Request):
     if not workspace_id:
         raise HTTPException(404, "利用可能な workspace が見つかりません")
     from core.auth import enforce_api_key_scope as _eaks_rq
-    # agentK K-2 (q5 B2): 実効コレクションを body に書き戻す (内側の /api/chat でも再判定される)
-    body["collection_ids"] = _eaks_rq(request, workspace_id, body.get("collection_ids") or [])
+    _eaks_rq(request, workspace_id, body.get("collection_ids") or [])
     body["query"] = query
     body["workspace_id"] = workspace_id
 
@@ -2778,8 +2773,7 @@ async def chat_stream(workspace_id: str, request: Request):
     body = await parse_body_pydantic(request)
     # DD-CYN-0136 2-6: 鍵 scope の強制 (SSE 経路)
     from core.auth import enforce_api_key_scope as _eaks_ss
-    # agentK K-2 (q5 B2): 実効コレクションを body に書き戻す (SSE 経路も同型)
-    body["collection_ids"] = _eaks_ss(request, workspace_id, body.get("collection_ids") or [])
+    _eaks_ss(request, workspace_id, body.get("collection_ids") or [])
     query = body.get("query") or body.get("message")
     temperature = float(body.get("temperature", 0.1))
     if not query:
@@ -3569,7 +3563,7 @@ def full_export_workspace(request: Request, workspace_id: str):
         #   従来は raw 側を書き出していたが、M-7 以後 {cid}__raw は作られないため
         #   get_collection が必ず失敗し、新しいまとまりのベクターが 1 件も書き出されない
         #   (except で continue するため無言で 0 件になる)。実在する伏字済み一組を出す。
-        #   復元側 (_cnt_restore) と対で masked に揃える (姉妹系統の routers/chat.py:3342 と同形)。
+        #   復元側 (_cnt_restore) と対で masked に揃える (falcon routers/chat.py:3342 と同形)。
         from providers.vector_store import chroma_name_for_tier as _cnt_export
         for col in collections:
             cid = col["id"]
@@ -3963,7 +3957,7 @@ async def import_workspace(request: Request, file: UploadFile = File(...)):
             #   ({cid}__raw を作る経路は provider (providers/vector_store.py) から撤去済)、
             #   この get_or_create_collection は provider を通らないため、伏字前の層を
             #   生やせる唯一の口として残っていた。書き出し側 (_cnt_export) も masked を
-            #   出すようにしたので、復元先も masked に揃える (姉妹系統の routers/chat.py:3627 と同形)。
+            #   出すようにしたので、復元先も masked に揃える (falcon routers/chat.py:3627 と同形)。
             from providers.vector_store import chroma_name_for_tier as _cnt_restore
             ccol = chroma.get_or_create_collection(name=_cnt_restore(new_cid, "masked"))
             ids_buf, embs_buf, docs_buf, metas_buf = [], [], [], []

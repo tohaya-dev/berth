@@ -316,6 +316,32 @@ else:
         # SlowAPI の handler シグネチャは ExceptionHandler protocol と非互換 (RateLimitExceeded 専用)
         # FastAPI は runtime ダックタイプで受け入れるため抑制
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # pyright: ignore[reportArgumentType]
+
+        # berth-security ②: default_limits (200/分) はこれまで一度も掛かっていなかった。
+        #   default_limits を当てるのは SlowAPIMiddleware だが、登録していなかった。さらに
+        #   この FastAPI (0.139) では include_router した経路が _IncludedRouter に包まれ、
+        #   SlowAPIMiddleware を足しても経路の関数を引き当てられず全要求を素通しする
+        #   (実測: app 直下の経路は 4 回目から 429、include_router 経由は 6 回とも 200)。
+        #   本体の経路はほぼ全て include_router 経由なので、FastAPI の中身に依らない
+        #   素の http middleware で /api/ 配下に既定の上限を掛ける。
+        #   数え方は 接続元IP × メソッド × パス ごとに 200/分 (slowapi と同じ limits の固定窓)。
+        #   login・chat・パスワード系のデコレータの上限 (5/分・30/分) はこれと別にそのまま効く。
+        #   CYNOVELA_DISABLE_RATE_LIMIT=1 のときは上の分岐でここ自体を通らない (従来どおり)。
+        from limits import parse as _rl_parse
+        from limits.storage import MemoryStorage as _RLMemoryStorage
+        from limits.strategies import FixedWindowRateLimiter as _RLFixedWindow
+        from starlette.responses import JSONResponse as _RLJSONResponse
+
+        _default_rl_item = _rl_parse("200/minute")
+        _default_rl = _RLFixedWindow(_RLMemoryStorage())
+
+        @app.middleware("http")
+        async def _default_rate_limit_mw(request: Request, call_next):
+            _p = request.url.path
+            if _p.startswith("/api/"):
+                if not _default_rl.hit(_default_rl_item, "default", get_remote_address(request), request.method, _p):
+                    return _RLJSONResponse({"error": "Rate limit exceeded: 200 per 1 minute"}, status_code=429)
+            return await call_next(request)
     except Exception as _e:
         logger.warning(f"SlowAPI 初期化失敗 (rate limit 無効): {_e}")
         limiter = None
@@ -3668,14 +3694,6 @@ def _preflight_model_check(args) -> bool:
             save_dir = _fallback
             save_dir.mkdir(parents=True, exist_ok=True)
         all_ok = True
-        # berth-ga-readiness-20260923: この対話 DL 経路でも tools/download-rag-models.py と同じ
-        # locks/models.json の固定リビジョンを取る (従来は revision 未指定 = main の最新)。
-        # 固定表に無いモデルは従来どおり revision=None (既定ブランチ)。
-        try:
-            _pins = {m["model"]: m["revision"] for m in json.loads(
-                (pathlib.Path(__file__).resolve().parent / "locks" / "models.json").read_text(encoding="utf-8"))}
-        except (OSError, ValueError, KeyError, TypeError):
-            _pins = {}
         try:
             for model_name, size, role in missing:
                 # litefix-noninteractive-dl-20260710: 保存を local_dir=<org>__<name>（フラット・
@@ -3686,11 +3704,8 @@ def _preflight_model_check(args) -> bool:
                 logger.info(f"[Cynovela] ダウンロード中: {model_name} ({size})")
                 logger.info(f"[Cynovela] 保存先: {save_dir / ('models--' + model_name.replace('/', '--'))}")
                 try:
-                    if model_name in _pins:
-                        logger.info(f"[Cynovela] 固定リビジョン: {_pins[model_name]}")
                     snapshot_download(
                         repo_id=model_name,
-                        revision=_pins.get(model_name),
                         cache_dir=str(save_dir),
                     )
                     logger.info(f"[Cynovela] ダウンロード完了: {model_name}")
@@ -3748,7 +3763,7 @@ def _wire_providers_for_mode(app_config, yaml_cfg: dict) -> None:
     # (rag.reranker_enabled + reranker.provider/device) を正とする。
     # provider 構築は遅延ロードのためモデルのロードコストは起動時には発生しない
     # (_MODE_MODELS の定義自体は不変)。
-    # berth 差異: 姉妹系統は同時に cynovela.yaml の既定を外の口 (Mac Accelerator Service)
+    # berth 差異: falcon は同時に cynovela.yaml の既定を外の口 (Mac Accelerator Service)
     # へ倒したが、berth の既定は本体内 (reranker.provider=cross_encoder) のまま据え置く
     # (理由は cynovela.yaml の reranker 節のコメント参照)。したがって本ゲート撤去の実効は
     # 「--mode text 等でも rag.reranker_enabled / reranker.provider の指定どおりに再ランクが

@@ -11,8 +11,6 @@ mutable session 辞書は state.sessions に集約。
 
 from __future__ import annotations
 
-import json as _json_mod
-
 import jwt as _pyjwt
 
 from fastapi import HTTPException, Request
@@ -84,7 +82,7 @@ def get_user_from_token(request: Request) -> dict | None:
     トークン継続利用を防ぐため、DB 取得後に is_active チェックを追加。
     is_active=0 のときは None を返し、呼出側 (_require_admin/_require_authenticated) で 401 が発火する。
 
-    DD-CYN-0116 X-6 U-1 (姉妹系統の C-B5 の移植): 固定トークン受理経路
+    DD-CYN-0116 X-6 U-1 (falcon C-B5 の移植): 固定トークン受理経路
     'Bearer demo-token-{user_id}' を封鎖した。従来は --demo 起動時に限り、後続文字列を
     users.id として引き当てて認証を通していた。--demo は本製品の既定の見せ方であり、
     実測で demo-token-user-admin だけで管理者 API に到達できた
@@ -120,7 +118,7 @@ def get_user_from_token(request: Request) -> dict | None:
 
 def _get_jwt_secret() -> str:
     """JWT 署名シークレット。金庫（Fernet）の鍵とは別実体の署名専用鍵を参照する。
-    事実19追補(K8s幹 <development commit> 相当): 公知フォールバック文字列を撤去し fail-closed 化。
+    事実19追補(K8s幹 3616e2e 相当): 公知フォールバック文字列を撤去し fail-closed 化。
     鍵不在時は config 側が暗号乱数で生成・永続化するため「鍵なし署名」は発生しない。
     auth.py 側に新規 env 読みは追加しない（config の既存解決結果を消費するのみ）。
 
@@ -141,7 +139,11 @@ def jwt_ttl_hours() -> float:
     """N-1: JWT アクセストークンの有効期間 (時間) を返す。8時間固定の直書きを廃止した。
 
     優先順位: DB settings 表の 'auth.token_ttl_hours' → 環境変数 CYNOVELA_TOKEN_TTL_HOURS
-    → 既定 8 (既定値は変えない・決定§77)。値は float 可で、0.01〜720 時間にクランプする。
+    → 既定 0。値は float 可で、正の数は 0.01〜720 時間にクランプする。
+    prep-20260926: 既定を 0 (= 期限なし) にした (2026-09-24 決定。常時稼働に近い運用で
+    MCP・エージェントが固定トークンを使うため、期限があると突然 401 になる)。0 以下は
+    「期限なし」を返す。漏れたトークンは、その利用者のパスワード変更・無効化→再有効化で
+    止める (トークンの版)。
     settings の読み方は routers/settings.py と同じ SELECT だが、core→routers の import は
     しない (向きの規律) ため DB 直読みをここに閉じる。DB 不達や不正値は次の候補へ落ちる。
     """
@@ -161,7 +163,7 @@ def jwt_ttl_hours() -> float:
     except Exception:
         pass
     _candidates.append(_os.environ.get("CYNOVELA_TOKEN_TTL_HOURS"))
-    hours = 8.0
+    hours = 0.0
     for _c in _candidates:
         if _c in (None, ""):
             continue
@@ -170,6 +172,8 @@ def jwt_ttl_hours() -> float:
             break
         except (TypeError, ValueError):
             continue
+    if hours <= 0:
+        return 0.0  # 期限なし
     # クランプ: 36秒 (0.01h) 〜 30日 (720h)
     return max(0.01, min(hours, 720.0))
 
@@ -185,8 +189,7 @@ def _audit_auth_failure(request: Request, reason: str) -> None:
                 conn,
                 "auth_failed",
                 target=path,
-                # berth-ga-final-cleanup (q5 B7): reason は URL のパス引数を含み得るため、JSON を文字列連結で作らない
-                detail=_json_mod.dumps({"reason": reason}, ensure_ascii=False),
+                detail=f'{{"reason": "{reason}"}}',
                 ip_address=ip,
                 result="failure",
                 category="security",
@@ -248,18 +251,8 @@ def _resolve_api_key(request: Request, token: str) -> dict | None:
         conn.close()
     user = dict(urow)
     # 鍵の役割で上書き (発行時に発行者役割を上限にクランプ済み。閲覧者鍵は viewer 固定)
-    # agentK K-3 (q5 B3): 鍵の役割は発行時点で固定されるため、利用者を降格
-    # (PATCH /api/admin/users/{id} role=viewer) しても admin 鍵は admin のまま使えた。
-    # 鍵の役割と利用者の「現在の」役割の低い方を実効役割にする (鍵は名乗る利用者を超えない)。
-    # 失効ではなく要求時の再解決にしたのは、再昇格で鍵が自然に復活し、鍵の行 (監査) を
-    # 触らずに済むため。is_active=0 は上の SELECT で既に拒否している。
-    _key_role = krow.get("role")
-    if _key_role:
-        _rank = {"viewer": 1, "admin": 2}
-        _user_role = user.get("role") or "viewer"
-        user["role"] = (
-            _key_role if _rank.get(_key_role, 0) <= _rank.get(_user_role, 0) else _user_role
-        )
+    if krow.get("role"):
+        user["role"] = krow["role"]
     user["user_id"] = user["id"]
     try:
         _scope = _json.loads(krow.get("scope_json") or "{}")
@@ -270,7 +263,7 @@ def _resolve_api_key(request: Request, token: str) -> dict | None:
     try:
         request.state.api_key_id = krow["id"]
         request.state.api_key_scope = _scope
-        request.state.api_key_role = user["role"]  # K-3: 実効役割 (鍵 × 利用者の現在役割)
+        request.state.api_key_role = krow.get("role")
     except Exception:
         pass
     _remember_audit_actor(request, user)
@@ -278,71 +271,24 @@ def _resolve_api_key(request: Request, token: str) -> dict | None:
 
 
 def enforce_api_key_scope(request: Request, workspace_id: str | None = None,
-                          collection_ids: list | None = None) -> list:
+                          collection_ids: list | None = None) -> None:
     """DD-CYN-0136 2-6: 用途限定の鍵 (cyn_) の scope を API 層でも強制する。
 
     従来この強制は MCP 層 (_scope_check) にしか無く、鍵で直に /api/chat 等を叩くと
     scope 外の workspace/collection に到達できた (経路間の乖離。総決算で実測)。
     JWT (鍵でない) は従来どおり各 API の権限判定に委ね、ここでは絞らない。
-
-    agentK K-2 (q5 B2): 返り値として「実効コレクション一覧」を返す。
-    従来は名指しされた collection_ids が範囲外かだけを見ており、名指しが空だと
-    呼出側 (chat._narrow_to_requested_collections / chunks) が「WS 内全件」に広げていた
-    (= scope.collections が空指定で無効化される)。scope.collections が有るのに名指しが
-    空なら scope の集合そのものを返し、呼出側はこれを検索対象にする。
-    鍵でない・scope なし・collections 軸なしのときは受け取った collection_ids をそのまま返す
-    (従来挙動そのまま)。
     """
-    _requested = [c for c in (collection_ids or []) if c]
     scope = getattr(request.state, "api_key_scope", None)
     if not isinstance(scope, dict) or not scope:
-        return _requested
+        return
     ws_allow = scope.get("workspaces") or []
     col_allow = scope.get("collections") or []
     if ws_allow and workspace_id and workspace_id not in ws_allow:
         raise HTTPException(403, f"この鍵は作業場所 {workspace_id} の範囲外です")
     if col_allow:
-        for _c in _requested:
-            if _c not in col_allow:
+        for _c in collection_ids or []:
+            if _c and _c not in col_allow:
                 raise HTTPException(403, f"この鍵はコレクション {_c} の範囲外です")
-        if not _requested:
-            return [str(c) for c in col_allow if c]
-    return _requested
-
-
-# agentK K-5 (q5 B5): 初回パスワード変更ゲートを通さずに到達できる EP の正本集合。
-# 初回パスワード変更の GUI 流れ (frontend/js/state.js _enterApp → /api/auth/me →
-# _showMustChangePasswordModal → /api/auth/change-password) と、ログアウト・
-# ロック画面解除 (verify-password) に必要な最小集合。変更以外の操作は通さない。
-MUST_CHANGE_EXEMPT_PATHS: frozenset[str] = frozenset({
-    "/api/auth/me",
-    "/api/auth/logout",
-    "/api/auth/change-password",
-    "/api/auth/verify-password",
-})
-
-
-def _enforce_must_change_gate(request: Request, user: dict) -> None:
-    """agentK K-5 (q5 B5): must_change_password=1 の利用者は、免除 EP 以外を 403 で止める。
-
-    従来このゲートは _require_admin にしか無く、_require_role(request, {"admin"}) を使う
-    reports 系 3 EP と /api/files/{id}/preview は配布物の固定初期 PW のまま到達できた。
-    認証の共通経路 (_require_authenticated) に置くことで、鍵 (cyn_)・JWT・旧 hex32 の
-    全経路と、_require_admin / _require_role / _require_admin_or_self / 直呼びの全呼出側に
-    一律で効く。must_change=0 の稼働/テストは無影響。
-    """
-    if not user.get("must_change_password"):
-        return
-    try:
-        path = request.scope.get("path") or request.url.path
-    except Exception:
-        from urllib.parse import urlsplit as _urlsplit
-
-        path = _urlsplit(str(getattr(request, "url", "") or "")).path
-    if path in MUST_CHANGE_EXEMPT_PATHS:
-        return
-    _audit_auth_failure(request, "must_change_password")
-    raise HTTPException(403, "初回パスワードの変更が必要です。パスワードを変更してから操作してください。")
 
 
 def _require_admin(request: Request) -> dict:
@@ -352,9 +298,8 @@ def _require_admin(request: Request) -> dict:
         _audit_auth_failure(request, "admin_required")
         raise HTTPException(403, "管理者権限が必要です")
     # must-change-gate (pre-ga-fix-all-20260720): 初回パスワード変更が必要な管理者は、変更を済ませるまで
-    # 管理操作を通さない (配布物の固定初期PW対策・「変更以外の操作を通さない」)。
-    # agentK K-5: ゲート本体は _require_authenticated 内の _enforce_must_change_gate へ移し
-    # (免除 EP は MUST_CHANGE_EXEMPT_PATHS)、ここは二重の守りとして残す。
+    # 管理操作を通さない (配布物の固定初期PW対策・「変更以外の操作を通さない」)。change-password は
+    # _require_authenticated 経由なので本ゲートを通らず変更できる。must_change=0 の稼働/テストは無影響。
     if user.get("must_change_password"):
         raise HTTPException(403, "初回パスワードの変更が必要です。パスワードを変更してから操作してください。")
     return user
@@ -365,7 +310,7 @@ def _require_authenticated(request: Request) -> dict:
 
     返却 dict は user 行全体に加え `user_id` キーを含める（既存呼び出し元との互換性維持）。
 
-    DD-CYN-0116 X-6 U-1 (姉妹系統の C-B5 の移植): demo-token-* の後方互換受理を撤去した。
+    DD-CYN-0116 X-6 U-1 (falcon C-B5 の移植): demo-token-* の後方互換受理を撤去した。
     """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
@@ -386,7 +331,6 @@ def _require_authenticated(request: Request) -> dict:
         if _u is None:
             _audit_auth_failure(request, "api_key_rejected")
             raise HTTPException(401, "認証が必要です")
-        _enforce_must_change_gate(request, _u)  # K-5
         return _u
 
     # JWT 形式（`xxx.yyy.zzz`）の検証
@@ -414,30 +358,18 @@ def _require_authenticated(request: Request) -> dict:
             _audit_auth_failure(request, "user_deactivated")
             raise HTTPException(401, "User deactivated")
         result = dict(row)
-        # agentK K-1 (q5 B1): パスワード変更 (本人 change-password / 管理者 reset-password) より
-        # 前に発行されたアクセストークンを拒否する。users.password_changed_at (UTC epoch 秒) と
-        # JWT の iat (同じ UTC epoch 秒・routers/auth.py login/refresh が付与) を比べる。
-        # 列が無い旧 DB / 未変更 (NULL) は従来どおり通す。iat 無しの JWT は本製品が発行しない
-        # 形なので拒否する (fail-closed)。同一秒内 (iat == changed_at) は変更直後に発行する
-        # 新トークンを通すため許容する (漏れ窓は最大 1 秒)。
-        _pca = result.get("password_changed_at")
-        if _pca not in (None, "", 0):
-            try:
-                _pca_i = int(_pca)
-            except (TypeError, ValueError):
-                _pca_i = None
-            if _pca_i is not None:
-                _iat = payload.get("iat")
-                try:
-                    _iat_i = int(_iat) if _iat is not None else None
-                except (TypeError, ValueError):
-                    _iat_i = None
-                if _iat_i is None or _iat_i < _pca_i:
-                    _audit_auth_failure(request, "token_issued_before_password_change")
-                    raise HTTPException(401, "Token expired")
+        # berth-security ④: 発行時の版 (tv) がいまの版と違えば失効。版はパスワードの変更・
+        #   再設定・無効化・再有効化で進む (db.py / Postgres DDL のトリガー)。
+        #   例外は、パスワードを変えた本人がその時に使っていた1本 (jti = token_keep_jti) だけ。
+        #   tv の無い旧トークンは版 0 とみなす (既存の期限までは従来どおり通る)。
+        if int(payload.get("tv") or 0) != int(result.get("token_version") or 0):
+            _keep = result.get("token_keep_jti")
+            if not (_keep and payload.get("jti") == _keep):
+                _audit_auth_failure(request, "token_revoked")
+                raise HTTPException(401, "Token revoked")
         result["user_id"] = row["id"]
         _remember_audit_actor(request, result)
-        _enforce_must_change_gate(request, result)  # K-5
+        _enforce_must_change_gate(request, result)
         return result
 
     # 旧 hex32 セッショントークン: 既存の state.sessions 経由
@@ -448,8 +380,39 @@ def _require_authenticated(request: Request) -> dict:
     result = dict(user)
     result["user_id"] = user.get("id")
     _remember_audit_actor(request, result)
-    _enforce_must_change_gate(request, result)  # K-5
+    _enforce_must_change_gate(request, result)
     return result
+
+
+# berth-security ③: 初回パスワード変更が済むまでに通してよい口。変更の画面を出して
+#   変更を済ませるのに要るもの (自分が誰か・変更・ロック解除・ログアウト) だけに絞る。
+MUST_CHANGE_EXEMPT_PATHS: frozenset[str] = frozenset({
+    "/api/auth/me",
+    "/api/auth/logout",
+    "/api/auth/change-password",
+    "/api/auth/verify-password",
+})
+
+
+def _enforce_must_change_gate(request: Request, user: dict) -> None:
+    """berth-security ③: must_change_password の利用者を、変更に要る口以外で 403 にする。
+
+    従来この判定は _require_admin の中だけにあり、閲覧者の一般 API と、
+    _require_role / _require_admin_or_self を通る口 (PATCH /api/users/{id} 等) は
+    初期パスワードのまま使えていた。JWT と旧セッションの共通の入口で見る。
+    用途を限定した鍵 (cyn_) はパスワードとは別の資格 (管理者が発行・失効する) なので
+    ここでは止めない (鍵の利用者が無効なら _resolve_api_key が従来どおり断る)。
+    """
+    if not user.get("must_change_password"):
+        return
+    try:
+        _path = request.url.path
+    except Exception:
+        _path = ""
+    if _path in MUST_CHANGE_EXEMPT_PATHS:
+        return
+    _audit_auth_failure(request, "must_change_password")
+    raise HTTPException(403, "初回パスワードの変更が必要です。パスワードを変更してから操作してください。")
 
 
 def _require_role(request: Request, allowed_roles) -> dict:

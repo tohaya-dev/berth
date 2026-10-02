@@ -86,10 +86,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS system_prompts (id TEXT PRIMARY KEY, prompt_name TEXT NOT NULL, prompt_version TEXT NOT NULL DEFAULT 'v1', prompt_text TEXT NOT NULL, prompt_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'utc'), 'YYYY-MM-DD HH24:MI:SS')));
 
 -- table: users
-CREATE TABLE IF NOT EXISTS "users" (id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('admin', 'viewer')), avatar TEXT, username TEXT, display_name TEXT, password_hash TEXT, is_active INT DEFAULT 1, created_at TEXT, updated_at TEXT, must_change_password INT, password_changed_at BIGINT);
--- agentK K-1 (q5 B1): パスワード変更時刻 (UTC epoch 秒)。これより前に発行された JWT (iat) を
--- core/auth.py が拒否する。SQLite 側は db.py migrate_db の ALTER と対。既存 DB にも冪等追加。
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS password_changed_at BIGINT;
+CREATE TABLE IF NOT EXISTS "users" (id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('admin', 'viewer')), avatar TEXT, username TEXT, display_name TEXT, password_hash TEXT, is_active INT DEFAULT 1, created_at TEXT, updated_at TEXT, must_change_password INT);
 
 -- table: workspaces
 CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, guardrail_policy_id TEXT REFERENCES guardrail_policies (id), created_at TEXT DEFAULT (TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'utc'), 'YYYY-MM-DD HH24:MI:SS')), sync_config TEXT DEFAULT NULL, description TEXT DEFAULT '', updated_at TEXT, acl_config TEXT DEFAULT NULL, archived_at TEXT DEFAULT NULL, archived_by TEXT);
@@ -110,7 +107,7 @@ CREATE TABLE IF NOT EXISTS "document_provenance" (id TEXT PRIMARY KEY, document_
 CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, source_id TEXT NOT NULL REFERENCES sources (id) ON DELETE CASCADE, name TEXT NOT NULL, path TEXT NOT NULL, size INT, mime_type TEXT, categories TEXT DEFAULT '[]', scanned_at TEXT DEFAULT (TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'utc'), 'YYYY-MM-DD HH24:MI:SS')), owner TEXT, department TEXT, project TEXT, doc_type TEXT, sensitivity_level TEXT, sensitivity_score DOUBLE PRECISION, metadata_enriched_at TEXT, refreshed_at TEXT, classification TEXT DEFAULT NULL, classified_at TEXT DEFAULT NULL, sensitivity TEXT DEFAULT 'public', auto_tags TEXT DEFAULT '[]', freshness_days INT DEFAULT NULL, expires_at TEXT DEFAULT NULL, missing INT NOT NULL DEFAULT 0);
 -- schema-parity fix (pre-ga-fix-all-20260720): 既存DBにも missing 列を冪等追加する。
 -- server.py _do_scan / _detect_workspace_changes が files.missing を読み書きするが SQLite の
--- migrate_db(db.py) 相当が PG 側に無いため、姉妹系統 SQLite の定義 (INTEGER NOT NULL DEFAULT 0) に合わせて補う。
+-- migrate_db(db.py) 相当が PG 側に無いため、falcon SQLite の定義 (INTEGER NOT NULL DEFAULT 0) に合わせて補う。
 ALTER TABLE files ADD COLUMN IF NOT EXISTS missing INT NOT NULL DEFAULT 0;
 
 -- table: parent_chunks
@@ -165,3 +162,22 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash NULLS FIRST);
 
 -- DD-CYN-0136 2-1: collections.egress_allowed (DD-CYN-0132 4-4)。既定 0 = 外へ出さない (fail-safe)。
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS egress_allowed INT NOT NULL DEFAULT 0;
+
+-- berth-security ④: トークンの版 (users.token_version) と、パスワードを変えた本人の1本だけを生かす印
+-- (users.token_keep_jti)。SQLite 側 db.py _ensure_token_revocation_trigger と同じ働き:
+-- password_hash か is_active が変わったら版を1つ進め、印を消し、その利用者のリフレッシュトークンを全て消す。
+-- CREATE OR REPLACE で再適用しても安全 (起動ごとの冪等適用・pg16)。
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_keep_jti TEXT;
+CREATE OR REPLACE FUNCTION cyn_users_revoke_tokens() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.password_hash IS DISTINCT FROM OLD.password_hash
+       OR COALESCE(NEW.is_active, 1) IS DISTINCT FROM COALESCE(OLD.is_active, 1) THEN
+        NEW.token_version := COALESCE(OLD.token_version, 0) + 1;
+        NEW.token_keep_jti := NULL;
+        DELETE FROM refresh_tokens WHERE user_id = NEW.id;
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE OR REPLACE TRIGGER trg_users_revoke_tokens BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION cyn_users_revoke_tokens();

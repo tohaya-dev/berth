@@ -1,8 +1,6 @@
-English | [日本語](requirements.ja.md)
-
 # System requirements
 
-What a host needs before you follow [Start here](start-here.md) or the [Linux / WSL2 guide](linux-wsl.md). Values come from the shipped scripts and manifests; the file that sets each one is named so you can re-check it.
+What a host needs before you follow [Start here](../../START-HERE.md) or the [Linux / WSL2 guide](linux-wsl.md). Values come from the shipped scripts and manifests; the file that sets each one is named so you can re-check it.
 
 ## Operating system and platform
 
@@ -61,7 +59,7 @@ Memory-pressure settings baked into the rendered configuration (`deploy/k8s/linu
 - `masking.parallelism = 1` (line 51) — masking runs one task at a time, the setting previously recommended for machines where the worker ran into OOM restart loops with higher parallelism.
 - `worker.embedding_mode = minimal` (line 50).
 
-If pods restart with `OOMKilled`, give the node more memory rather than raising parallelism. See [Troubleshooting](troubleshooting.md) and [Limitations](limitations.md).
+If pods restart with `OOMKilled`, give the node more memory rather than raising parallelism. See [Troubleshooting](troubleshooting.md) and [Limitations](../known-limitations.md).
 
 ## Disk
 

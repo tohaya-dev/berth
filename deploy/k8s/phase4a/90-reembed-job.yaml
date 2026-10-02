@@ -1,0 +1,35 @@
+# DD-CYN-0143 K-3: pgvector 再埋め込みを API Pod への exec ではなく専用 Job で走らせる。
+#   従来は稼働中 API Pod (bge-m3 ロード済み・limit 6Gi) の中で 2 本目の bge-m3 を立ち上げる形になり
+#   OOM (exit 137) で chunks_vec が作られなかった (DD-CYN-0143 K-3 1回目で実測)。
+#   専用 Pod なら bge-m3 は 1 本で、上限も独立に持てる。
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cynovela-reembed
+  namespace: cynovela
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: reembed
+          image: localhost/cynovela-hansolo:dd0115
+          imagePullPolicy: Never
+          command: ["python", "/app/deploy/k8s/phase4a/reembed_pgvector.py"]
+          env:
+            - name: CYNOVELA_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: cynovela-secret, key: secret_key } }
+            - { name: TZ, value: "Asia/Tokyo" }
+          volumeMounts:
+            - { name: config, mountPath: /app/cynovela.yaml, subPath: cynovela.yaml }
+            - { name: models, mountPath: /app/store/models, readOnly: true }
+          resources:
+            requests: { cpu: "500m", memory: "2Gi" }
+            limits: { memory: "8Gi" }
+      volumes:
+        - name: config
+          configMap: { name: cynovela-config }
+        - name: models
+          hostPath: { path: /var/lib/cynovela-models/models, type: Directory }

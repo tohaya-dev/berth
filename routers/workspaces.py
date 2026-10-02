@@ -858,16 +858,8 @@ def get_workspace_chunks(
     """Workspace内のチャンク一覧をメタデータ付きで返す。"""
     user = _require_authenticated(request)
     # DD-CYN-0136 2-6: 鍵 scope の強制 (chunk 本文の直接閲覧口)
-    # agentK K-2 (q5 B2): 従来は作業場所の軸しか効かず、scope.collections を持つ鍵でも
-    # WS 内の全コレクションのチャンクが返っていた。返り値 (実効コレクション) が非空なら
-    # 集計・一覧の全クエリに ch.collection_id IN (...) を足して範囲内に閉じる。
     from core.auth import enforce_api_key_scope as _eaks_ch
-    _scope_cols = _eaks_ch(request, workspace_id)
-    _col_clause = ""
-    _col_params: tuple = ()
-    if _scope_cols:
-        _col_clause = " AND ch.collection_id IN (" + ",".join("?" for _ in _scope_cols) + ")"
-        _col_params = tuple(_scope_cols)
+    _eaks_ch(request, workspace_id)
     if offset < 0:
         raise HTTPException(status_code=400, detail="offsetは0以上です")
     conn = get_db()
@@ -930,16 +922,16 @@ def get_workspace_chunks(
               COUNT(*) AS total,
               COALESCE(SUM(CASE WHEN excluded=1 THEN 1 ELSE 0 END), 0) AS excluded_cnt
             FROM chunks ch
-            WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}{_col_clause}
+            WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}
         """,
-            (workspace_id, _tier, *_col_params),
+            (workspace_id, _tier),
         ).fetchone()
         _pii_counts = pii_counts_from_summaries(
             r[0]
             for r in conn.execute(
                 f"SELECT ch.pii_summary FROM chunks ch "
-                f"WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}{_col_clause}",
-                (workspace_id, _tier, *_col_params),
+                f"WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}",
+                (workspace_id, _tier),
             ).fetchall()
         )
 
@@ -956,11 +948,11 @@ def get_workspace_chunks(
                    c.allowed_roles_json AS allowed_roles_json
             FROM chunks ch
             LEFT JOIN collections c ON c.id = ch.collection_id
-            WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}{_col_clause}
+            WHERE ch.workspace_id = ? AND ch.tier = ?{filter_clause}
             ORDER BY ch.source_doc, ch.chunk_id
             LIMIT ? OFFSET ?
         """,
-            (workspace_id, _tier, *_col_params, limit, offset),
+            (workspace_id, _tier, limit, offset),
         ).fetchall()
     finally:
         conn.close()

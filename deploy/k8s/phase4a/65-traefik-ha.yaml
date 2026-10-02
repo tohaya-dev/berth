@@ -1,0 +1,30 @@
+# Phase 4a: ingress(Traefik) の単一障害点是正。
+#   障害耐性検証v3(2026-07-15) 3-A の実測知見: traefik が 1 レプリカのみで喪失ノードに
+#   同居していると、ノード喪失時に外部到達が約6分失われる（アプリ層は片肺で健全でも
+#   ingress 経路が単一点）。
+#   k3s の Traefik は Helm 管理（リポジトリ内に Deployment 定義が無い）のため、
+#   Deployment を直接書かず k3s 標準の HelmChartConfig で値を上書きする。
+#   topologySpreadConstraints は既存 API Pod (20-api-deployment.yaml) と同一パターン
+#   （maxSkew:1 / kubernetes.io/hostname / DoNotSchedule）を踏襲。
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      # 現在の 2 ノード構成に合わせて 2 レプリカ。ノード数が変わったら合わせて見直す前提。
+      replicas: 2
+    # 2 レプリカを別ノードへ 1 つずつ配置（API Pod と同一パターン）。
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+    # ローリング更新等の意図的操作で両レプリカが同時に落ちないようにする。
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1

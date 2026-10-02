@@ -1,5 +1,3 @@
-English | [日本語](troubleshooting.ja.md)
-
 # Troubleshooting
 
 Each entry lists the symptom (with the exact message where the scripts print one), the cause, a command to confirm it, and the fix. Commands assume the environment from [linux-wsl.md](linux-wsl.md), run from the repository root inside Ubuntu:
@@ -18,7 +16,7 @@ A short alias saves typing in the checks below:
 alias kb='kubectl --context "$BERTH_CONTEXT" -n "$BERTH_NAMESPACE"'
 ```
 
-Related pages: [Windows launcher](windows-launcher.md), [Uninstall and upgrade](uninstall-upgrade.md), [Requirements](requirements.md), [Limitations](limitations.md), [FAQ](faq.md).
+Related pages: [Windows launcher](windows-launcher.md), [Uninstall and upgrade](uninstall-upgrade.md), [Requirements](requirements.md), [Limitations](../known-limitations.md), [FAQ](../faq.md).
 
 ## Contents
 

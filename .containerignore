@@ -51,12 +51,6 @@ docs
 _oss-rc-artifacts
 _oss-rc-backups
 .venv-oss
-# berth-ga-readiness-20260923: the guides save the image archive (berth-*.tar) in the repository
-# root; keep archives and local virtualenvs out of the next build context (COPY . /app).
-*.tar
-*.tar.gz
-.venv
-venv
 .env
 .env.*
 !\.env.example

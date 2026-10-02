@@ -1,5 +1,3 @@
-English | [日本語](before-distributing.ja.md)
-
 # Before distributing or deploying for others
 
 A checklist for anyone who redistributes Berth (source, a built image or a model cache) or runs it for other people. Berth is published as a source release candidate. **No application image is published**, so each operator builds their own image, and whoever passes that image on takes on the obligations below.
@@ -69,6 +67,6 @@ Before you give a deployment to other people, make sure that `$BERTH_DATA_DIR/in
 
 ## Tell your users what they get
 
-- [ ] Point them to [Known limitations](limitations.md), especially masking accuracy, backup scope and the single-node design.
-- [ ] Tell them where their data lives and how it is backed up ([FAQ](faq.md#where-is-my-data)).
+- [ ] Point them to [Known limitations](../known-limitations.md), especially masking accuracy, backup scope and the single-node design.
+- [ ] Tell them where their data lives and how it is backed up ([FAQ](../faq.md)).
 - [ ] Report security issues as described in [`SECURITY.md`](../../SECURITY.md).

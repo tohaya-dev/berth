@@ -1,0 +1,33 @@
+# Phase 3: backend=postgres の初期データ投入 Job（DDL適用→importer・1回）。
+# 前提: Postgres(pgvector) が namespace に展開済み（deploy/k8s/phase2/50-pgvector.yaml 流用可）、
+#       ConfigMap cynovela-config が database.backend=postgres / postgres.host=cynovela-pgvector を持つ。
+# アプリ本体 Deployment は本 Job の完了後に readiness を満たす（initContainer で seed 完了待ち or 手順順序）。
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cynovela-pg-seed
+  namespace: cynovela
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          # DD-CYN-0115 Phase5: seed も同じ現ソースイメージで実行 (phase3:latest はこの機体に実体なし)
+          image: localhost/cynovela-hansolo:dd0115
+          imagePullPolicy: Never
+          command: ["python", "tools/seed_postgres.py"]
+          env:
+            # DD-CYN-0143 K-3: 作り直し (新規 seed) では yaml auth.* の初期PWを必ず適用する。
+            # 焼き込み demo.db のハッシュのままだと合言葉が分からずログイン不能になる (実測)。
+            - { name: CYNOVELA_SEED_FORCE_PASSWORDS, value: "1" }
+            # prep-20260926: API/worker/reembed と同じ共有鍵を渡す。渡さないと seed の Pod が
+            # 使い捨ての鍵を新しく作っていた (新規配備で実測)。Secret が無い手順でも止めない。
+            - name: CYNOVELA_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: cynovela-secret, key: secret_key, optional: true } }
+          volumeMounts:
+            - { name: config, mountPath: /app/cynovela.yaml, subPath: cynovela.yaml }
+      volumes:
+        - name: config
+          configMap: { name: cynovela-config }

@@ -59,9 +59,9 @@ notifications:
     - circuit_breaker_opened
 # ga-finish-sync-20260727 (Part1 同送): 再ランクを外の口 (Mac Accelerator Service) へ出す
 # 経路をコードへ入れた。ただし berth の既定は従来どおり本体内 (cross_encoder) のままとする。
-# 理由: (1) berth のツリーは MAS 本体 (姉妹系統の mas/) を同梱しておらず、外の口は運用側で
+# 理由: (1) berth のツリーは MAS 本体 (falcon の mas/) を同梱しておらず、外の口は運用側で
 #       別途立てるもの。既定で外へ向けると口が居ない環境で毎回 接続試行→退避 になる。
-#   (2) 姉妹系統の既定値 host.containers.internal は podman コンテナ用の名前で、k3d Pod 内では
+#   (2) falcon の既定値 host.containers.internal は podman コンテナ用の名前で、k3d Pod 内では
 #       解決できない。K8s から Mac ホストへ届くアドレスは gvproxy ゲートウェイの数値表記で、
 #       deploy/k8s/phase4a/apply-phase4a.sh が LLM 宛先に使っている 127.0.0.1 と同型。
 # 外の口へ切り替える場合は device と base_url を次のように与える (新環境変数は不要):
@@ -86,9 +86,9 @@ pii_mode: standard
 # env CYNOVELA_ADMIN_INITIAL_PASSWORD が設定されていればそちらが最優先 (従来互換)。
 auth:
   admin_initial_password: ''
-  # DD-CYN-0115 M-3 (姉妹系統の DD-CYN-0070 N-4 と同じ振る舞い): 閲覧者の初期の合言葉。
+  # DD-CYN-0115 M-3 (falcon DD-CYN-0070 N-4 と同じ振る舞い): 閲覧者の初期の合言葉。
   # 空のままだと初回起動時に乱数が使われ、コンソール出力に1回だけ表示される。
-  # 姉妹系統の同梱既定と同じ値 (must_change 設計の初期値)。
+  # falcon の同梱既定と同じ値 (must_change 設計の初期値)。
   viewer_initial_password: 'demo1234'
 vector_store:
   provider: chromadb

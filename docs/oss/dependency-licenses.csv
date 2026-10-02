@@ -31,7 +31,7 @@ en_core_web_sm,3.8.0,MIT,https://pypi.org/project/en_core_web_sm/3.8.0/,4,metada
 et_xmlfile,2.0.0,License :: OSI Approved :: MIT License,https://pypi.org/project/et_xmlfile/2.0.0/,0,metadata and bundled notices identified
 fastapi,0.141.1,MIT,https://pypi.org/project/fastapi/0.141.1/,1,metadata and bundled notices identified
 filelock,3.32.3,MIT,https://pypi.org/project/filelock/3.32.3/,1,metadata and bundled notices identified
-FlagEmbedding,1.4.2,MIT (bundled LICENSE),https://pypi.org/project/FlagEmbedding/1.4.2/,1,metadata and bundled notices identified
+FlagEmbedding,1.4.2,See bundled license files,https://pypi.org/project/FlagEmbedding/1.4.2/,1,metadata and bundled notices identified
 FlashRank,0.2.10,License :: OSI Approved :: Apache Software License,https://pypi.org/project/FlashRank/0.2.10/,1,metadata and bundled notices identified
 flatbuffers,25.12.19,License :: OSI Approved :: Apache Software License,https://pypi.org/project/flatbuffers/25.12.19/,0,metadata and bundled notices identified
 frozenlist,1.8.0,Apache-2.0,https://pypi.org/project/frozenlist/1.8.0/,1,metadata and bundled notices identified
@@ -49,7 +49,7 @@ httpx-sse,0.4.3,MIT,https://pypi.org/project/httpx-sse/0.4.3/,1,metadata and bun
 huggingface_hub,1.31.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/huggingface_hub/1.31.0/,1,metadata and bundled notices identified
 idna,3.19,BSD-3-Clause,https://pypi.org/project/idna/3.19/,1,metadata and bundled notices identified
 importlib_resources,7.1.0,Apache-2.0,https://pypi.org/project/importlib_resources/7.1.0/,1,metadata and bundled notices identified
-ir_datasets,0.6.3,Apache-2.0 (bundled LICENSE; metadata classifier says MIT),https://pypi.org/project/ir_datasets/0.6.3/,1,metadata and bundled notices identified
+ir_datasets,0.6.3,License :: OSI Approved :: MIT License,https://pypi.org/project/ir_datasets/0.6.3/,1,metadata and bundled notices identified
 ja-ginza,5.2.0,MIT License,https://pypi.org/project/ja-ginza/5.2.0/,0,metadata and bundled notices identified
 ja_core_news_sm,3.8.0,CC BY-SA 4.0,https://pypi.org/project/ja_core_news_sm/3.8.0/,4,metadata and bundled notices identified
 Jinja2,3.1.6,License :: OSI Approved :: BSD License,https://pypi.org/project/Jinja2/3.1.6/,1,metadata and bundled notices identified
@@ -58,7 +58,7 @@ jsonschema,4.26.0,MIT,https://pypi.org/project/jsonschema/4.26.0/,1,metadata and
 jsonschema-specifications,2025.9.1,MIT,https://pypi.org/project/jsonschema-specifications/2025.9.1/,1,metadata and bundled notices identified
 kubernetes,36.0.3,License :: OSI Approved :: Apache Software License,https://pypi.org/project/kubernetes/36.0.3/,1,metadata and bundled notices identified
 limits,5.8.0,MIT,https://pypi.org/project/limits/5.8.0/,1,metadata and bundled notices identified
-lxml,6.1.3,BSD-3-Clause,https://pypi.org/project/lxml/6.1.3/,2,metadata and bundled notices identified
+lxml,6.0.4,BSD-3-Clause,https://pypi.org/project/lxml/6.0.4/,2,metadata and bundled notices identified
 lz4,4.4.5,License :: OSI Approved :: BSD License,https://pypi.org/project/lz4/4.4.5/,1,metadata and bundled notices identified
 markdown-it-py,4.2.0,License :: OSI Approved :: MIT License,https://pypi.org/project/markdown-it-py/4.2.0/,2,metadata and bundled notices identified
 MarkupSafe,3.0.3,BSD-3-Clause,https://pypi.org/project/MarkupSafe/3.0.3/,1,metadata and bundled notices identified
@@ -95,7 +95,7 @@ plac,1.4.7,License :: OSI Approved :: BSD License,https://pypi.org/project/plac/
 preshed,3.0.13,License :: OSI Approved :: MIT License,https://pypi.org/project/preshed/3.0.13/,1,metadata and bundled notices identified
 presidio_analyzer,2.2.364,MIT,https://pypi.org/project/presidio_analyzer/2.2.364/,5,metadata and bundled notices identified
 presidio_anonymizer,2.2.364,MIT,https://pypi.org/project/presidio_anonymizer/2.2.364/,0,metadata and bundled notices identified
-prometheus-fastapi-instrumentator,8.1.0,ISC (bundled LICENSE),https://pypi.org/project/prometheus-fastapi-instrumentator/8.1.0/,1,metadata and bundled notices identified
+prometheus-fastapi-instrumentator,8.1.0,License :: OSI Approved,https://pypi.org/project/prometheus-fastapi-instrumentator/8.1.0/,1,metadata and bundled notices identified
 prometheus_client,0.26.0,Apache-2.0 AND BSD-2-Clause,https://pypi.org/project/prometheus_client/0.26.0/,2,metadata and bundled notices identified
 propcache,0.5.2,License :: OSI Approved :: Apache Software License,https://pypi.org/project/propcache/0.5.2/,2,metadata and bundled notices identified
 protobuf,7.36.1,3-Clause BSD License,https://pypi.org/project/protobuf/7.36.1/,1,metadata and bundled notices identified
@@ -127,7 +127,7 @@ referencing,0.37.0,MIT,https://pypi.org/project/referencing/0.37.0/,1,metadata a
 regex,2026.9.10,Apache-2.0 AND CNRI-Python,https://pypi.org/project/regex/2026.9.10/,1,metadata and bundled notices identified
 requests,2.34.2,License :: OSI Approved :: Apache Software License,https://pypi.org/project/requests/2.34.2/,2,metadata and bundled notices identified
 requests-file,3.0.1,License :: OSI Approved :: Apache Software License,https://pypi.org/project/requests-file/3.0.1/,1,metadata and bundled notices identified
-requests-oauthlib,2.0.0,ISC (bundled LICENSE; metadata classifier says BSD),https://pypi.org/project/requests-oauthlib/2.0.0/,1,metadata and bundled notices identified
+requests-oauthlib,2.0.0,License :: OSI Approved :: BSD License,https://pypi.org/project/requests-oauthlib/2.0.0/,1,metadata and bundled notices identified
 rich,15.0.0,License :: OSI Approved :: MIT License,https://pypi.org/project/rich/15.0.0/,1,metadata and bundled notices identified
 rpds-py,2026.6.3,MIT,https://pypi.org/project/rpds-py/2026.6.3/,1,metadata and bundled notices identified
 safetensors,0.8.0,License :: OSI Approved :: Apache Software License,https://pypi.org/project/safetensors/0.8.0/,1,metadata and bundled notices identified

@@ -43,6 +43,47 @@ def _auth_rate_limit():
     return _noop
 
 
+def _issue_access_token(user_id: str, role: str, token_version, ttl_hours: float) -> tuple[str, str]:
+    """berth-security ④: アクセストークンを発行し (token, jti) を返す。
+
+    tv = 発行時の利用者のトークンの版 (core/auth.py が毎回いまの版と比べる)。
+    jti = この1本の識別子 (パスワードを変えた本人の1本だけを生かすのに使う)。
+    期間は呼び元が jwt_ttl_hours() から決めたものをそのまま使う。0 以下なら exp を入れない (期限なし)。
+    """
+    from core.auth import _get_jwt_secret
+
+    now = datetime.now(_tz.utc)
+    jti = _uuid.uuid4().hex
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "iat": int(now.timestamp()),
+        "tv": int(token_version or 0),
+        "jti": jti,
+    }
+    if ttl_hours and ttl_hours > 0:
+        payload["exp"] = int((now + _td(hours=ttl_hours)).timestamp())
+    return _pyjwt.encode(payload, _get_jwt_secret(), algorithm="HS256"), jti
+
+
+def _expires_in_seconds(ttl_hours: float):
+    """応答の expires_in (秒)。期限なしのときは None。"""
+    return int(ttl_hours * 3600) if ttl_hours and ttl_hours > 0 else None
+
+
+def _issue_refresh_token(conn, user_id: str) -> str:
+    """Batch-B S1-3: リフレッシュトークン (30日) を作って保存し、平文を返す。commit は呼び元。"""
+    raw_refresh = secrets.token_urlsafe(32)
+    refresh_hash = _hashlib.sha256(raw_refresh.encode()).hexdigest()
+    rt_expires = (datetime.now(_tz.utc) + _td(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+    conn.execute(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)"
+        " VALUES (?, ?, ?, ?)",
+        (_uuid.uuid4().hex, str(user_id), refresh_hash, rt_expires),
+    )
+    return raw_refresh
+
+
 @router.get("/api/auth/users", response_model=None)
 def list_users(request: Request):
     # 2026-05-23 sec4 v4.1 項目①: 旧 fix060 B の demo 未認証許可を撤廃。常時 admin 認証必須。
@@ -108,9 +149,10 @@ async def login(request: Request):
         raise HTTPException(401, "ユーザー名またはパスワードが正しくありません")
 
     # Batch-B S1-3: JWT アクセストークン
-    # N-1: 8時間固定の直書きを廃止。上限は jwt_ttl_hours() (DB settings → env → 既定8h)。
+    # N-1: 8時間固定の直書きを廃止。上限は jwt_ttl_hours() (DB settings → env → 既定 0 = 期限なし)。
     #   body の任意指定 ttl_hours があれば、上限にクランプして使う (負値・0 は 400)。
-    from core.auth import _get_jwt_secret, jwt_ttl_hours
+    #   上限が期限なし (0) のときは、指定された ttl_hours をそのまま使う (720h で頭打ち)。
+    from core.auth import jwt_ttl_hours
     ttl_max = jwt_ttl_hours()
     ttl_req = body.get("ttl_hours")
     if ttl_req is not None:
@@ -120,33 +162,19 @@ async def login(request: Request):
             raise HTTPException(400, "ttl_hours は数値で指定してください")
         if ttl_req <= 0:
             raise HTTPException(400, "ttl_hours は正の数で指定してください")
-        ttl_hours = min(ttl_req, ttl_max)  # 上限超え指定は上限に丸める
+        # 上限超え指定は上限に丸める (上限が期限なしなら 720h で頭打ち)
+        ttl_hours = min(ttl_req, ttl_max if ttl_max > 0 else 720.0)
     else:
         ttl_hours = ttl_max
-    now = datetime.now(_tz.utc)
-    access_payload = {
-        "sub": str(user["id"]),
-        "role": user["role"],
-        "iat": int(now.timestamp()),
-        "exp": int((now + _td(hours=ttl_hours)).timestamp()),
-    }
-    access_token = _pyjwt.encode(
-        access_payload, _get_jwt_secret(), algorithm="HS256"
+    # berth-security ④: 発行時の版 (tv) を入れる。列が無い古い DB 形でも 0 として扱う。
+    access_token, _jti = _issue_access_token(
+        str(user["id"]), user["role"], dict(user).get("token_version"), ttl_hours
     )
 
     # Batch-B S1-3: リフレッシュトークン（30日）
-    raw_refresh = secrets.token_urlsafe(32)
-    refresh_hash = _hashlib.sha256(raw_refresh.encode()).hexdigest()
-    # agentK K-1: 区切りを datetime('now') と同じ空白にし、SQL 側の文字列比較
-    # (refresh の expires_at > datetime('now')) が同日内でも正しく効くようにする。
-    rt_expires = (now + _td(days=30)).strftime("%Y-%m-%d %H:%M:%S")
     conn2 = get_db()
     try:
-        conn2.execute(
-            "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)"
-            " VALUES (?, ?, ?, ?)",
-            (_uuid.uuid4().hex, str(user["id"]), refresh_hash, rt_expires),
-        )
+        raw_refresh = _issue_refresh_token(conn2, str(user["id"]))
         # Batch-B S1-1: must_change_password フラグ取得
         mcpw_row = conn2.execute(
             "SELECT must_change_password FROM users WHERE id = ?",
@@ -177,8 +205,8 @@ async def login(request: Request):
         "user_id": str(user["id"]),
         "role": user["role"],
         "must_change_password": must_change,
-        # N-1: アクセストークンの有効期間 (秒)。既存フィールドは維持したまま追加。
-        "expires_in": int(ttl_hours * 3600),
+        # N-1: アクセストークンの有効期間 (秒)。既存フィールドは維持したまま追加。期限なしは null。
+        "expires_in": _expires_in_seconds(ttl_hours),
     }
 
 
@@ -270,10 +298,6 @@ def auth_me(request: Request):
         "role": role,
         "role_label_en": role_label_en,
         "role_label_ja": role_label_ja,
-        # agentK K-5: 初回パスワード変更ゲートが全 EP に効くようになったため、リロード時の
-        # 自動ログイン (frontend/js/state.js DOMContentLoaded → /api/auth/me) でも
-        # 変更モーダルを出せるようフラグを返す (ログイン応答と同じ鍵名)。
-        "must_change_password": bool(user.get("must_change_password")),
     }
 
 
@@ -339,9 +363,7 @@ def auth_capabilities(request: Request):
 @router.get("/api/auth/session-config", response_model=None)
 def auth_session_config(request: Request):
     """PHASE AUTH-1: セッション持続時間設定を返す。"""
-    # berth-ga-final-cleanup (q5 B8): 画面の無操作ロック (_initIdleTimeout) は全ロールで読む。
-    # 値は秘密ではない。admin 限定だと viewer では 403 になりロックが効かず、毎回 auth_failed が記録されていた。
-    _require_authenticated(request)
+    _require_admin(request)
     c = get_db()
     try:
         rows = {
@@ -363,25 +385,19 @@ async def update_auth_session_config(request: Request):
     body = await parse_body_pydantic(request)
     sh = body.get("session_hours")
     im = body.get("idle_logout_minutes")
-    # berth-ga-final-cleanup (q5 B8): 数値でない値は 500 ではなく 400 で断る
-    try:
-        sh = None if sh is None else int(sh)
-        im = None if im is None else int(im)
-    except (TypeError, ValueError):
-        raise HTTPException(400, "session_hours / idle_logout_minutes は整数で指定してください")
     c = get_db()
     try:
         if sh is not None:
             c.execute(
                 "INSERT INTO settings (key, value) VALUES ('auth.session_hours', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (str(sh),),
+                (str(int(sh)),),
             )
         if im is not None:
             c.execute(
                 "INSERT INTO settings (key, value) VALUES ('auth.idle_logout_minutes', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (str(im),),
+                (str(int(im)),),
             )
         c.commit()
     finally:
@@ -389,65 +405,26 @@ async def update_auth_session_config(request: Request):
     return {"ok": True}
 
 
-def _revoke_user_refresh_tokens(conn, user_id: str) -> int:
-    """agentK K-1 (q5 B1): 利用者のリフレッシュトークンを全件失効させ、
-    users.password_changed_at (UTC epoch 秒) を今にする。
-
-    パスワード変更 (本人 change-password) と管理者 reset-password の両方から呼ぶ。
-    従来はどちらも users.password_hash を書き換えるだけで、漏えいした refresh token
-    (30 日) と発行済み JWT (exp まで) が変更後も生き残っていた。JWT 側の拒否は
-    core/auth.py _require_authenticated が password_changed_at と iat を比べて行う。
-    conn は呼出側が commit / close する。失効した行数を返す。
-    """
-    import time as _time
-
-    cur = conn.execute("DELETE FROM refresh_tokens WHERE user_id = ?", (user_id,))
-    try:
-        conn.execute(
-            "UPDATE users SET password_changed_at = ? WHERE id = ?",
-            (int(_time.time()), user_id),
-        )
-    except Exception:
-        # 列が無い旧 DB (migrate_db 未通過) では refresh 失効のみで継続する
-        pass
-    try:
-        return int(cur.rowcount or 0)
-    except Exception:
-        return 0
-
-
-def _refresh_token_expired(expires_at, now_utc: datetime) -> bool:
-    """agentK K-1: refresh_tokens.expires_at ('%Y-%m-%dT%H:%M:%S' または
-    '%Y-%m-%d %H:%M:%S'、UTC) を Python 側でも比べる。
-
-    SQL 側の `expires_at > datetime('now')` は文字列比較で、'T' 区切りの保存値と
-    datetime('now') の空白区切りが混在すると同日内の期限切れを取りこぼす (T > 空白)。
-    バックエンド (SQLite / Postgres) に依らず同じ判定にするためここで確定させる。
-    解釈できない値は期限切れ扱い (fail-closed)。"""
-    s = str(expires_at or "").strip().replace("T", " ")
-    try:
-        exp = datetime.strptime(s[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
-    except (TypeError, ValueError):
-        return True
-    return exp <= now_utc
-
-
 @router.post("/api/auth/refresh", response_model=None)
-@_auth_rate_limit()  # agentK K-4 (q5 B4): login と同じ 5/min/IP
-def refresh_access_token(request: Request, refresh_token: str = Body(..., embed=True)):
+def refresh_access_token(refresh_token: str = Body(..., embed=True)):
     """Batch-B S1-3: リフレッシュトークンで新しいアクセストークンを発行する。
 
     N-1: 発行するアクセストークンの期間も jwt_ttl_hours() に従う
     (refresh トークン自体の30日は変えない)。
-    agentK K-4: slowapi は request 引数を要求するため signature に request を足した
-    (Body(embed=True) の受け方は不変)。
+
+    prep-20260926: リフレッシュトークンは使い捨てにしない (2026-09-24 決定)。
+    同じ値を期限まで何度でも使え、同じ値を複数のクライアントが同時に使っても
+    互いを失効させない。漏れた値を止めるのは失効の仕組みの側で行う: その利用者の
+    パスワード変更・再設定、無効化→再有効化で、DB のトリガーがトークンの版を進め、
+    リフレッシュトークンを全て消す (db.py の trg_users_revoke_tokens)。
     """
-    from core.auth import _get_jwt_secret, jwt_ttl_hours
+    from core.auth import jwt_ttl_hours
     token_hash = _hashlib.sha256(refresh_token.encode()).hexdigest()
     conn = get_db()
     try:
         row = conn.execute(
-            """SELECT rt.user_id, rt.expires_at, u.role, COALESCE(u.is_active, 1) AS is_active
+            """SELECT rt.user_id, u.role, COALESCE(u.is_active, 1) AS is_active,
+                      COALESCE(u.token_version, 0) AS token_version
                FROM refresh_tokens rt
                JOIN users u ON rt.user_id = u.id
                WHERE rt.token_hash = ?
@@ -458,34 +435,19 @@ def refresh_access_token(request: Request, refresh_token: str = Body(..., embed=
         conn.close()
     if not row or not row["is_active"]:
         raise HTTPException(401, "Invalid or expired refresh token")
-    now = datetime.now(_tz.utc)
-    if _refresh_token_expired(row["expires_at"], now):  # K-1: 期限を Python 側でも確定
-        raise HTTPException(401, "Invalid or expired refresh token")
     _ttl_hours = jwt_ttl_hours()  # N-1: 8時間固定の直書きを廃止
-    payload = {
-        "sub": row["user_id"],
-        "role": row["role"],
-        "iat": int(now.timestamp()),
-        "exp": int((now + _td(hours=_ttl_hours)).timestamp()),
-    }
+    access_token, _jti = _issue_access_token(row["user_id"], row["role"], row["token_version"], _ttl_hours)
     return {
-        "access_token": _pyjwt.encode(payload, _get_jwt_secret(), algorithm="HS256"),
+        "access_token": access_token,
         "token_type": "bearer",
-        "expires_in": int(_ttl_hours * 3600),
+        "expires_in": _expires_in_seconds(_ttl_hours),
     }
 
 
 @router.post("/api/auth/change-password", response_model=None)
-@_auth_rate_limit()  # agentK K-4 (q5 B4): current_password の総当たり防止 5/min/IP
+@_auth_rate_limit()  # berth-security ②: current_password の総当たりを login と同じ 5/min/IP で止める
 async def change_password_endpoint(request: Request):
-    """Batch-B S1-1: ログイン済みユーザーが自分のパスワードを変更する。current_password 検証必須。
-
-    agentK K-1 (q5 B1): 変更と同時に本人の refresh token を全件失効させ、
-    password_changed_at を更新して変更前に発行された JWT を無効にする。
-    呼出側 (GUI の初回変更モーダル・CLI) が続けて操作できるよう、新しい
-    access_token / refresh_token を応答に載せる (ログイン応答と同じ鍵名)。
-    鍵 (cyn_) で呼ばれた場合は JWT を持たないので発行しない (ok のみ)。
-    """
+    """Batch-B S1-1: ログイン済みユーザーが自分のパスワードを変更する。current_password 検証必須。"""
     from core.auth import _require_authenticated as _ra
     user = _ra(request)
     body = await parse_body_pydantic(request)
@@ -493,16 +455,14 @@ async def change_password_endpoint(request: Request):
     new_password = body.get("new_password") or ""
     if len(new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
-    _via_api_key = bool(getattr(request.state, "api_key_id", None))
     conn = get_db()
     try:
         row = conn.execute(
-            "SELECT password_hash, role FROM users WHERE id = ?", (user["user_id"],)
+            "SELECT password_hash FROM users WHERE id = ?", (user["user_id"],)
         ).fetchone()
         if not row:
             raise HTTPException(404, "User not found")
         if not verify_password(current_password, row["password_hash"] or ""):
-            _audit_auth_failure(request, "change_password_bad_current")
             raise HTTPException(401, "Current password is incorrect")
         from db import hash_password as _hp
         new_hash = _hp(new_password)
@@ -510,65 +470,34 @@ async def change_password_endpoint(request: Request):
             "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
             (new_hash, user["user_id"]),
         )
-        _revoked = _revoke_user_refresh_tokens(conn, user["user_id"])  # K-1
-        resp: dict = {"ok": True, "refresh_tokens_revoked": _revoked}
-        if not _via_api_key:
-            from core.auth import _get_jwt_secret, jwt_ttl_hours
-
-            now = datetime.now(_tz.utc)
-            _ttl_hours = jwt_ttl_hours()
-            access_token = _pyjwt.encode(
-                {
-                    "sub": str(user["user_id"]),
-                    "role": row["role"],
-                    "iat": int(now.timestamp()),
-                    "exp": int((now + _td(hours=_ttl_hours)).timestamp()),
-                },
-                _get_jwt_secret(),
-                algorithm="HS256",
-            )
-            raw_refresh = secrets.token_urlsafe(32)
-            conn.execute(
-                "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)"
-                " VALUES (?, ?, ?, ?)",
-                (
-                    _uuid.uuid4().hex,
-                    str(user["user_id"]),
-                    _hashlib.sha256(raw_refresh.encode()).hexdigest(),
-                    (now + _td(days=30)).strftime("%Y-%m-%d %H:%M:%S"),
-                ),
-            )
-            resp.update(
-                {
-                    "access_token": access_token,
-                    "token": access_token,  # ログイン応答と同じ後方互換名
-                    "refresh_token": raw_refresh,
-                    "token_type": "bearer",
-                    "expires_in": int(_ttl_hours * 3600),
-                }
-            )
+        # berth-security ④: この UPDATE で DB のトリガーがトークンの版を進め、この利用者の
+        #   リフレッシュトークンを全て消す (他の端末・漏れた値も含めて失効)。
+        #   変更した本人がいま使っているアクセストークン1本だけは生かす (jti を印に残す)。
+        #   画面と既存の呼び元は変更後も同じトークンで続けて動く。消えたリフレッシュトークンの
+        #   代わりを1本返す (受け取らない呼び元は、期限が来たら入り直す従来の動きになる)。
+        _keep_jti = None
         try:
-            from core.audit import _log_audit as _la_cp
+            from core.auth import _get_jwt_secret as _gjs
 
-            _la_cp(
-                conn,
-                "password_changed",
-                str(user["user_id"]),
-                detail=f"refresh_tokens_revoked={_revoked}",
-                user_id=str(user["user_id"]),
-                ip_address=(request.client.host if request.client else None),
-                category="security",
-            )
+            _tok = request.headers.get("Authorization", "")[7:]
+            if _tok.count(".") == 2:
+                _keep_jti = _pyjwt.decode(_tok, _gjs(), algorithms=["HS256"]).get("jti")
         except Exception:
-            pass
+            _keep_jti = None
+        if _keep_jti:
+            conn.execute(
+                "UPDATE users SET token_keep_jti = ? WHERE id = ?",
+                (_keep_jti, user["user_id"]),
+            )
+        new_refresh = _issue_refresh_token(conn, user["user_id"])
         conn.commit()
     finally:
         conn.close()
-    return resp
+    return {"ok": True, "refresh_token": new_refresh}
 
 
 @router.post("/api/auth/verify-password", response_model=None)
-@_auth_rate_limit()  # agentK K-4 (q5 B4): ロック画面解除口の総当たり防止 5/min/IP
+@_auth_rate_limit()  # berth-security ②: 正誤を返す口なので login と同じ 5/min/IP で止める
 async def verify_password_endpoint(request: Request):
     """Batch-B S1-3: パスワードを検証する（ロック画面解除用）。トークンは発行しない。"""
     from core.auth import _require_authenticated as _ra

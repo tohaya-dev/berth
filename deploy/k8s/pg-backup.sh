@@ -6,14 +6,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 NS="${NS:-cynovela}"
 DEST="${PG_BACKUP_DIR:-$HOME/dt-backups/k8s-pg}"
-# BERTH_* is the primary name; HAN_SOLO_* is still honoured as a deprecated alias (BERTH_* wins when both are set).
-KEY="${BERTH_SECRET_FILE:-${HAN_SOLO_SECRET_FILE:-$REPO/store/secret.key}}"
-CONTEXT="${BERTH_CONTEXT:-${HAN_SOLO_CONTEXT:-}}"
+KEY="${HAN_SOLO_SECRET_FILE:-$REPO/store/secret.key}"
 PGUSER=cynovela
 PGDB=cynovela
 k() {
-  if [ -n "$CONTEXT" ]; then
-    kubectl --context "$CONTEXT" -n "$NS" "$@"
+  if [ -n "${HAN_SOLO_CONTEXT:-}" ]; then
+    kubectl --context "$HAN_SOLO_CONTEXT" -n "$NS" "$@"
   else
     kubectl -n "$NS" "$@"
   fi

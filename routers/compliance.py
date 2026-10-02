@@ -118,7 +118,7 @@ def compliance_checklist(request: Request):
 async def compliance_report(request: Request, days: int = 30, limit: int = 500):
     """コンプライアンスレポートをHTML形式で返す。ブラウザで window.print() → PDF保存。
 
-    DD-CYN-0116 X-6 U-10 (姉妹系統の route-admin-sweep-20260727 の移植): 監査記録
+    DD-CYN-0116 X-6 U-10 (falcon route-admin-sweep-20260727 の移植): 監査記録
     (audit_logs) の明細を返す経路なので管理者専用へ寄せた。同じファイルの他2か所は
     元から管理者専用であり、CSV 版 /api/compliance-report.csv も管理者専用。
     HTML 版だけが取り残されていた非対称の是正。

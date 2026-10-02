@@ -66,7 +66,7 @@ def _load_or_create_secret_key() -> str:
 def _load_or_create_jwt_signing_key() -> str:
     """通行証 (JWT) の署名鍵。金庫 (Fernet 暗号化) の鍵とは別の実体を持たせる。
 
-    二役分離 (part6-20260726): 2026-07-05 (berth <development commit>) は署名鍵の公知フォールバックを
+    二役分離 (part6-20260726): 2026-07-05 (hansolo 3616e2e) は署名鍵の公知フォールバックを
     塞ぐため署名鍵を金庫鍵へ寄せた (一鍵二役)。本関数はその際に残件化された「二役の分離」で、
     署名鍵だけを別実体へ切り出す。金庫鍵の解決・生成 (_load_or_create_secret_key) には
     一切手を入れない。移行データは無い (通行証は有効期間 8 時間の使い捨て)。
@@ -80,11 +80,11 @@ def _load_or_create_jwt_signing_key() -> str:
       2. 永続化ファイル <CYNOVELA_DATA_DIR>/db/jwt/secret.key を読み出す。
       3. 無ければ暗号乱数 (secrets) で新規生成し、同パスへ書き込み + chmod 600。
 
-    (1) が姉妹系統版 (<development commit>) との差異で、berth の複数ノード形態への適合である。
-    姉妹系統は無条件に (2)(3) だけを行うが、berth の K8s 形態
+    (1) が falcon 版 (d02eb24) との差異で、berth の複数ノード形態への適合である。
+    falcon は無条件に (2)(3) だけを行うが、berth の K8s 形態
     (deploy/k8s/phase4a/20-api-deployment.yaml) は **replicas: 2 を 2 ノードへ分散し、
     /app/store/db を共有しない (関係層=Postgres でステートレス。config/models(ro)/uploads
-    のみマウント)**。そこで姉妹系統版をそのまま入れると Pod ごとに別々の乱数署名鍵が
+    のみマウント)**。そこで falcon 版をそのまま入れると Pod ごとに別々の乱数署名鍵が
     コンテナ書込層へ生成され、Pod A が発行した通行証を Pod B が拒否する
     (Service ラウンドロビン下で認証が壊れる)。同 Deployment は金庫鍵を Secret
     cynovela-secret から env CYNOVELA_SECRET_KEY で全 Pod へ配っているため、
@@ -92,7 +92,7 @@ def _load_or_create_jwt_signing_key() -> str:
     金庫鍵とは別物になる (HMAC は一方向なので、署名鍵が漏れても金庫鍵は復元できない
     = 二役分離の目的は満たす)。単一レプリカ + PVC 形態
     (deploy/k8s/20-deployment.yaml は replicas: 1 で /app/store/db に PVC cynovela-data を
-    マウント・env 未設定) では (2)(3) に落ち、姉妹系統と同じファイル方式で永続する。
+    マウント・env 未設定) では (2)(3) に落ち、falcon と同じファイル方式で永続する。
 
     公知の推測可能な固定文字列へ落ちる経路は持たない (2026-07-05 に撤去した穴を再生産しない)。
     書き込みに失敗した場合はプロセス内限りの乱数鍵を返す (金庫鍵と同じ作り)。この場合は起動ごとに

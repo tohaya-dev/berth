@@ -1115,7 +1115,8 @@ def cmd_login(args) -> int:
     if _want_json(args):
         _print_json({"saved": True, "env_file": str(env_path), "expires_in": expires_in, "role": role})
         return 0
-    print(f"✅ ログイン成功: role={role}  expires_in={expires_in}s")
+    _life = "期限なし" if expires_in in (None, "") else f"{expires_in}s"
+    print(f"✅ ログイン成功: role={role}  expires_in={_life}")
     print(f"   トークンの保存先: {env_path} (0600)")
     if data.get("must_change_password"):
         print("⚠️  初期パスワードのままです。パスワードの変更が必要です。", file=sys.stderr)
@@ -1212,19 +1213,6 @@ def cmd_collections_status(args) -> int:
     return 0
 
 
-def _default_data_dir() -> Path:
-    """Default data directory when neither BERTH_DATA_DIR nor HAN_SOLO_DATA_DIR is set.
-
-    New installs use ~/.local/share/berth. An install that relied on the former default
-    ~/.local/share/hansolo and has no ~/.local/share/berth keeps finding its data (same rule as
-    ops/linux.sh). Quiet on purpose: the path is returned, nothing is printed."""
-    new = Path.home() / ".local" / "share" / "berth"
-    old = Path.home() / ".local" / "share" / "hansolo"
-    if not new.is_dir() and old.is_dir():
-        return old
-    return new
-
-
 def cmd_doctor(args) -> int:
     """R-3: この機材で足りないものを名指しする。サーバ側でなく手元 (ホスト) の検査。
     N-6: --remote はホスト検査を飛ばし、サーバ側の口を名指しで検査する。"""
@@ -1270,8 +1258,7 @@ def cmd_doctor(args) -> int:
     add("server", code == 200,
         f"{BASE_URL} -> {code}" + (f" version={data.get('version')}" if isinstance(data, dict) else ""),
         f"サーバが {BASE_URL} で応えない。クラスタの稼働と --url を確かめる")
-    # BERTH_CONTEXT is the primary name; HAN_SOLO_CONTEXT is still honoured as a deprecated alias.
-    context = os.environ.get("BERTH_CONTEXT") or os.environ.get("HAN_SOLO_CONTEXT", "")
+    context = os.environ.get("HAN_SOLO_CONTEXT", "")
     if context:
         executable = _shutil.which("kubectl")
         ok, detail = False, "kubectl missing"
@@ -1354,8 +1341,7 @@ def cmd_doctor(args) -> int:
     except Exception as e:
         add("port", False, f"{BASE_URL} へ TCP 接続できない ({e})", "クラスタ (k3d) の稼働と port-forward を確かめる")
     # 8. store/secret.key (このリポジトリ配置で動かす場合)
-    # BERTH_DATA_DIR is the primary name; HAN_SOLO_DATA_DIR is still honoured as a deprecated alias.
-    key_path = (Path(os.environ.get("BERTH_DATA_DIR") or os.environ.get("HAN_SOLO_DATA_DIR") or _default_data_dir())/"secrets"/"secret_key"
+    key_path = (Path(os.environ.get("HAN_SOLO_DATA_DIR", str(Path.home()/".local/share/hansolo")))/"secrets"/"secret_key"
                 if context else Path(__file__).resolve().parent / "store" / "secret.key")
     add("secret.key", key_path.is_file(), str(key_path) + ("" if key_path.is_file() else " が無い"),
         "store/secret.key はコピー元から持ってくる。再生成すると金庫が開かずログイン署名も通らない")

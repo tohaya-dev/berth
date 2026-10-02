@@ -15,7 +15,7 @@ function showAddSourceModal() {
       <div class="form-hint">
         ${lj('Specify a <strong>folder only</strong> (file paths are invalid).', '<strong>フォルダのみ</strong>を指定してください（ファイルパスは無効）。')}<br>
         ${lj('Subfolders of the ingest folder can each be registered as separate sources.', '取り込みフォルダ配下のサブフォルダは、それぞれ別のソースとして登録できます。')}<br>
-        ${lj('If a folder is not in the list: in the container / Kubernetes form, put it under the ingest directory that is mounted into the pods as /app/ingest (Linux / WSL install: $BERTH_DATA_DIR/ingest/&lt;folder&gt;). It shows up here without a restart. In the standalone form, register it with ./launch.sh --add-path &lt;folder path&gt;.', '一覧に無いフォルダは、コンテナ / Kubernetes 形態では、Pod から /app/ingest として見える取り込みフォルダの下（Linux / WSL の導入では $BERTH_DATA_DIR/ingest/&lt;フォルダ&gt;）に置くと、起動し直さなくてもここに出ます。スタンドアロン形態では ./launch.sh --add-path &lt;フォルダのパス&gt; で登録します。')}
+        ${lj('If a folder is not in the list: in the container / Kubernetes form, put it under the ingest directory that is mounted into the pods as /app/ingest (Linux / WSL install: $HAN_SOLO_DATA_DIR/ingest/&lt;folder&gt;). It shows up here without a restart. In the standalone form, register it with ./launch.sh --add-path &lt;folder path&gt;.', '一覧に無いフォルダは、コンテナ / Kubernetes 形態では、Pod から /app/ingest として見える取り込みフォルダの下（Linux / WSL の導入では $HAN_SOLO_DATA_DIR/ingest/&lt;フォルダ&gt;）に置くと、起動し直さなくてもここに出ます。スタンドアロン形態では ./launch.sh --add-path &lt;フォルダのパス&gt; で登録します。')}
       </div>
     </div>
   `, lj('Next', '次へ'), _addSourceStep2);

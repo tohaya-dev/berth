@@ -3,24 +3,14 @@
 set -euo pipefail
 umask 077
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# Environment: BERTH_* is the primary name. HAN_SOLO_* is still honoured as a deprecated alias; when both are
-# set, BERTH_* wins.
-DATA="${BERTH_DATA_DIR:-${HAN_SOLO_DATA_DIR:-$HOME/.local/share/berth}}"
-# Default resolution (only when neither variable is set): the default for new installs is
-# ~/.local/share/berth. An install that relied on the former default ~/.local/share/hansolo and has no
-# ~/.local/share/berth keeps finding its data; set BERTH_DATA_DIR explicitly to silence the notice.
-if [[ -z "${BERTH_DATA_DIR:-}${HAN_SOLO_DATA_DIR:-}" && ! -d "$DATA" && -d "$HOME/.local/share/hansolo" ]]; then
-  DATA="$HOME/.local/share/hansolo"
-  echo "notice: using legacy default data directory $DATA (set BERTH_DATA_DIR to choose explicitly)" >&2
-fi
-NS="${BERTH_NAMESPACE:-${HAN_SOLO_NAMESPACE:-berth}}"
-CONTEXT="${BERTH_CONTEXT:-${HAN_SOLO_CONTEXT:-}}"
-: "${CONTEXT:?Set BERTH_CONTEXT (deprecated alias: HAN_SOLO_CONTEXT) to the target Kubernetes context}"
-PORT="${BERTH_ENTRY_PORT:-${HAN_SOLO_ENTRY_PORT:-18765}}"
+DATA="${HAN_SOLO_DATA_DIR:-$HOME/.local/share/hansolo}"
+NS="${HAN_SOLO_NAMESPACE:-cynovela}"
+CONTEXT="${HAN_SOLO_CONTEXT:?Set HAN_SOLO_CONTEXT to the target Kubernetes context}"
+PORT="${HAN_SOLO_ENTRY_PORT:-18765}"
 # The entry forward binds loopback by default. A lab can widen it (for example to reach the UI through a VPN
-# interface) with BERTH_ENTRY_ADDRESS (deprecated alias: HAN_SOLO_ENTRY_ADDRESS), or with a one-line file "$DATA/entry-address". When widened, restrict
+# interface) with HAN_SOLO_ENTRY_ADDRESS, or with a one-line file "$DATA/entry-address". When widened, restrict
 # the port with a host firewall: the forward itself does no source filtering.
-ADDR="${BERTH_ENTRY_ADDRESS:-${HAN_SOLO_ENTRY_ADDRESS:-$(cat "$DATA/entry-address" 2>/dev/null || true)}}"; ADDR="${ADDR:-127.0.0.1}"
+ADDR="${HAN_SOLO_ENTRY_ADDRESS:-$(cat "$DATA/entry-address" 2>/dev/null || true)}"; ADDR="${ADDR:-127.0.0.1}"
 [[ "$ADDR" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "Invalid entry address: $ADDR" >&2; exit 2; }
 IMAGE="${IMAGE:-}"
 PYTHON="${PYBIN:-python3}"
@@ -67,13 +57,8 @@ case "${1:-}" in
     k rollout status deploy/cynovela-worker --timeout=600s
     ;;
   backup|restore)
-    # Both names are exported so an older or newer pg-backup.sh works during the transition.
-    export NS BERTH_CONTEXT="$CONTEXT" HAN_SOLO_CONTEXT="$CONTEXT"
-    export BERTH_SECRET_FILE="$DATA/secrets/secret_key" HAN_SOLO_SECRET_FILE="$DATA/secrets/secret_key"
+    export NS HAN_SOLO_CONTEXT="$CONTEXT" HAN_SOLO_SECRET_FILE="$DATA/secrets/secret_key"
     exec "$ROOT/deploy/k8s/pg-backup.sh" "$@"
     ;;
-  *)
-    echo "Usage: linux.sh install|start|connect|serve|status|verify|stop|restart|backup|restore DUMP --yes" >&2
-    echo "Environment: BERTH_CONTEXT (required), BERTH_DATA_DIR, BERTH_NAMESPACE, BERTH_ENTRY_PORT, BERTH_ENTRY_ADDRESS, IMAGE (install/start), PYBIN; the HAN_SOLO_* names are accepted as deprecated aliases" >&2
-    exit 2 ;;
+  *) echo "Usage: linux.sh install|start|connect|serve|status|verify|stop|restart|backup|restore DUMP --yes" >&2; exit 2 ;;
 esac

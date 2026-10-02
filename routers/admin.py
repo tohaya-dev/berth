@@ -187,18 +187,6 @@ async def admin_update_user(user_id: str, request: Request):
             params.append(1 if body["is_active"] else 0)
         if not updates:
             return {"ok": True, "id": user_id}
-        # berth-ga-final-cleanup (q5 B10c): 有効な管理者を 0 人にしない (purge 側の最終管理者ガードと同じ規則)。
-        # 最後の管理者を降格・無効化すると、製品側に管理権限を取り戻す手段が無い。
-        _demote = "role" in body and body["role"] != "admin"
-        _deact = "is_active" in body and not body["is_active"]
-        _active = user["is_active"] if user["is_active"] is not None else 1
-        if user["role"] == "admin" and _active and (_demote or _deact):
-            _others = conn.execute(
-                "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND id != ? AND COALESCE(is_active, 1) = 1",
-                (user_id,),
-            ).fetchone()
-            if not _others or _others["n"] == 0:
-                raise HTTPException(400, "最後の管理者は降格・無効化できません")
         updates.append("updated_at = ?")
         params.append(datetime.now().isoformat(timespec="seconds"))
         params.append(user_id)
@@ -292,17 +280,11 @@ async def admin_reset_password(user_id: str, request: Request):
             "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?",
             (hash_password(new_password), datetime.now().isoformat(timespec="seconds"), user_id),
         )
-        # agentK K-1 (q5 B1): 再設定と同時に対象利用者の refresh token を全件失効させ、
-        # password_changed_at を更新して再設定前の JWT も無効にする (routers/auth.py と同じ経路)。
-        # 自分自身を再設定した管理者は自分の JWT も失効する (GUI は 401 でログイン画面に戻る)。
-        from routers.auth import _revoke_user_refresh_tokens as _rurt
-
-        _revoked = _rurt(conn, user_id)
-        _log_audit(conn, "user_password_reset", user_id, f"refresh_tokens_revoked={_revoked}")
+        _log_audit(conn, "user_password_reset", user_id, "")
         conn.commit()
     finally:
         conn.close()
-    return {"ok": True, "refresh_tokens_revoked": _revoked}
+    return {"ok": True}
 
 
 # ─── /api/admin/restart ─────────────────────────────────────

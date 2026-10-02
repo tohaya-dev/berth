@@ -1,26 +1,17 @@
 #!/usr/bin/env bash
-# Add an ingest folder to a running Berth (Linux / WSL2 Kubernetes path).
+# Add an ingest folder to a running Han Solo (Linux / WSL2 Kubernetes path).
 #
-# The ingest area is a hostPath: "$BERTH_DATA_DIR/ingest" on the node is mounted read-only into the API and
+# The ingest area is a hostPath: "$HAN_SOLO_DATA_DIR/ingest" on the node is mounted read-only into the API and
 # worker pods as /app/ingest (deploy/k8s/linux/render.py). A new subfolder is therefore visible to the pods at
 # once. This script only creates a host folder and talks to the existing HTTP API; it never changes Kubernetes
 # objects (no PVC, no Deployment change, no rollout).
 set -euo pipefail
 umask 022   # ingest content is plain documents the owner manages; secrets are never written by this script
 
-# BERTH_* is the primary name; HAN_SOLO_* is still honoured as a deprecated alias (BERTH_* wins when both are set).
-DATA="${BERTH_DATA_DIR:-${HAN_SOLO_DATA_DIR:-$HOME/.local/share/berth}}"
-# Default resolution (only when neither variable is set): the default for new installs is
-# ~/.local/share/berth. An install that relied on the former default ~/.local/share/hansolo and has no
-# ~/.local/share/berth keeps finding its data; set BERTH_DATA_DIR explicitly to silence the notice.
-if [[ -z "${BERTH_DATA_DIR:-}${HAN_SOLO_DATA_DIR:-}" && ! -d "$DATA" && -d "$HOME/.local/share/hansolo" ]]; then
-  DATA="$HOME/.local/share/hansolo"
-  echo "notice: using legacy default data directory $DATA (set BERTH_DATA_DIR to choose explicitly)" >&2
-fi
-NS="${BERTH_NAMESPACE:-${HAN_SOLO_NAMESPACE:-berth}}"
-CONTEXT="${BERTH_CONTEXT:-${HAN_SOLO_CONTEXT:-}}"
-PORT="${BERTH_ENTRY_PORT:-${HAN_SOLO_ENTRY_PORT:-18765}}"
-SCAN_TIMEOUT="${BERTH_SCAN_TIMEOUT:-${HAN_SOLO_SCAN_TIMEOUT:-300}}"
+DATA="${HAN_SOLO_DATA_DIR:-$HOME/.local/share/hansolo}"
+NS="${HAN_SOLO_NAMESPACE:-cynovela}"
+CONTEXT="${HAN_SOLO_CONTEXT:-}"
+PORT="${HAN_SOLO_ENTRY_PORT:-18765}"
 PYTHON="${PYBIN:-python3}"
 POD_INGEST="/app/ingest"
 
@@ -29,13 +20,12 @@ usage() {
 Usage: scripts/add-ingest-folder.sh <folder-name> [--from <source-dir>] [--name <source display name>]
                                     [--workspace <workspace-id>] [--no-register]
 
-Creates "$BERTH_DATA_DIR/ingest/<folder-name>" on the host. The pods see it immediately as
+Creates "$HAN_SOLO_DATA_DIR/ingest/<folder-name>" on the host. The pods see it immediately as
 /app/ingest/<folder-name>; no restart, rollout, PVC or Deployment change is involved.
 
   <folder-name>       one path component: ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$
   --from <dir>        copy the content of <dir> into the folder; existing files are never overwritten,
-                      symlinks that point outside <dir> are skipped (the folder picker ignores symlinks anyway).
-                      Copied files are made world-readable (o+r) and folders o+rx: the pods run as uid 10001.
+                      symlinks that point outside <dir> are skipped (the folder picker ignores symlinks anyway)
   --name <name>       display name of the source (default: <folder-name>)
   --workspace <id>    also link the source to this workspace (the current source list is kept and merged)
   --no-register       only create/copy the folder; do not call the API
@@ -44,14 +34,13 @@ Creates "$BERTH_DATA_DIR/ingest/<folder-name>" on the host. The pods see it imme
 Unless --no-register is given, the script logs in as the admin user, registers /app/ingest/<folder-name> as a
 source (auto_scan off), starts a scan and waits for it (default 300 s).
 
-Environment (same as ops/linux.sh; the HAN_SOLO_* names are accepted as deprecated aliases, BERTH_* wins):
-  BERTH_DATA_DIR           data directory        (default: ~/.local/share/berth; an existing
-                           ~/.local/share/hansolo from an older install is used when the berth dir is absent)
-  BERTH_ENTRY_PORT         local entry port      (default: 18765; needs './ops/linux.sh connect' or 'serve')
-  BERTH_CONTEXT / BERTH_NAMESPACE   only used to print read-only Deployment generations as evidence
+Environment (same as ops/linux.sh):
+  HAN_SOLO_DATA_DIR        data directory        (default: ~/.local/share/hansolo)
+  HAN_SOLO_ENTRY_PORT      local entry port      (default: 18765; needs './ops/linux.sh connect' or 'serve')
+  HAN_SOLO_CONTEXT / HAN_SOLO_NAMESPACE   only used to print read-only Deployment generations as evidence
   CYNOVELA_ADMIN_USERNAME  admin user            (default: cynovela); password is read from
-                           "$BERTH_DATA_DIR/secrets/admin_password"
-  BERTH_SCAN_TIMEOUT       seconds to wait for the scan (default: 300)
+                           "$HAN_SOLO_DATA_DIR/secrets/admin_password"
+  HAN_SOLO_SCAN_TIMEOUT    seconds to wait for the scan (default: 300)
 
 Exit codes: 0 ok, 1 runtime failure, 2 usage error.
 EOF
@@ -80,11 +69,11 @@ done
 [[ -z "$FROM" || -d "$FROM" ]] || die_usage "--from '$FROM' is not an existing directory"
 [[ -n "$NAME" ]] || NAME="$FOLDER"
 [[ -z "$WORKSPACE" || "$WORKSPACE" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || die_usage "invalid workspace id '$WORKSPACE'"
-[[ "$PORT" =~ ^[0-9]{1,5}$ ]] || die_usage "invalid BERTH_ENTRY_PORT '$PORT'"
+[[ "$PORT" =~ ^[0-9]{1,5}$ ]] || die_usage "invalid HAN_SOLO_ENTRY_PORT '$PORT'"
 
 INGEST="$DATA/ingest"
 [[ -d "$INGEST" ]] || {
-  echo "Error: $INGEST does not exist. Install the runtime first (./ops/linux.sh install) or set BERTH_DATA_DIR." >&2
+  echo "Error: $INGEST does not exist. Install the runtime first (./ops/linux.sh install) or set HAN_SOLO_DATA_DIR." >&2
   exit 1
 }
 command -v "$PYTHON" >/dev/null 2>&1 || { echo "Error: $PYTHON not found (set PYBIN)" >&2; exit 1; }
@@ -104,7 +93,7 @@ fi
 if [[ "$GEN_CHECK" -eq 1 ]]; then
   echo "Deployment generations before:"; printf '%s\n' "$GEN_BEFORE" | sed 's/^/  /'
 else
-  echo "Note: kubectl/BERTH_CONTEXT not usable; skipping the Deployment generation check (the script changes no Kubernetes object either way)."
+  echo "Note: kubectl/HAN_SOLO_CONTEXT not usable; skipping the Deployment generation check (the script changes no Kubernetes object either way)."
 fi
 check_generations() {
   [[ "$GEN_CHECK" -eq 1 ]] || return 0
@@ -115,7 +104,6 @@ check_generations() {
 }
 
 if [[ -d "$TARGET" ]]; then echo "Folder already exists: $TARGET"; else mkdir -p "$TARGET"; echo "Folder created: $TARGET"; fi
-chmod o+rx "$TARGET"   # the pods run as the non-root uid 10001 on a read-only hostPath: world-readable is required
 echo "Visible in the pods as: $POD_INGEST/$FOLDER (read-only hostPath; no restart needed)"
 
 if [[ -n "$FROM" ]]; then
@@ -129,7 +117,6 @@ for root, dirs, files in os.walk(src, followlinks=False):
     rel = os.path.relpath(root, src)
     out = dst if rel == "." else os.path.join(dst, rel)
     os.makedirs(out, exist_ok=True)
-    os.chmod(out, (os.stat(out).st_mode & 0o777) | 0o055)   # pods run as uid 10001: dirs o+rx
     for d in list(dirs):                      # symlinked directories are listed in dirs but never descended into
         if os.path.islink(os.path.join(root, d)):
             dirs.remove(d); files.append(d)
@@ -145,7 +132,6 @@ for root, dirs, files in os.walk(src, followlinks=False):
         if not os.path.isfile(s):
             special += 1; continue             # sockets, devices, fifos
         shutil.copy2(s, t); copied += 1
-        os.chmod(t, (os.stat(t).st_mode & 0o777) | 0o044)  # copy2 keeps the source mode: force o+r
 print(f"Copied {copied} file(s) from {src} (skipped: {existing} already present, "
       f"{links_out} symlink(s) pointing outside, {special} special file(s))")
 PY
@@ -160,7 +146,7 @@ fi
 # The password and the token live only inside this python process: never in argv, the environment, traces or output.
 set +e
 "$PYTHON" - "$PORT" "$DATA/secrets/admin_password" "$POD_INGEST/$FOLDER" "$NAME" "$WORKSPACE" \
-  "${CYNOVELA_ADMIN_USERNAME:-cynovela}" "$SCAN_TIMEOUT" <<'PY'
+  "${CYNOVELA_ADMIN_USERNAME:-cynovela}" "${HAN_SOLO_SCAN_TIMEOUT:-300}" <<'PY'
 import json, sys, time, urllib.error, urllib.request
 port, pw_file, path, name, workspace, user, timeout_s = sys.argv[1:8]
 base = f"http://127.0.0.1:{port}"

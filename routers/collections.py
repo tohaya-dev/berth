@@ -52,7 +52,7 @@ RAG_STRATEGIES = {"simple", "hybrid_bm25", "contextual"}
 # ============================================================
 # Stage R7 C-4: Smart Ingestion Stage 2/3 状態遷移
 # ============================================================
-# 遷移パス (内部設計メモ / Phase 3 Recon Agent J §1-3 中):
+# 遷移パス (Notion 35994ef8 / Phase 3 Recon Agent J §1-3 中):
 #   draft → ingested → ready
 #   draft → publishing → ready / failed (legacy 経路、互換維持)
 #   publishing → stopped (中断)
@@ -275,7 +275,7 @@ async def create_collection(request: Request):
     # 閉じる。raw_mode は collections.rag_mode='raw' を書き、chat 側の「rawモード Collection は
     # Guardrail をバイパス」分岐 (routers/chat.py の rag_mode='raw' 判定) へ到達していた。
     # 列 (collections.rag_mode) と過去データは保全する (migration は行わない)。
-    # berth 差異: raw_only (masked 層を作らない取り込み・admin 限定) は姉妹系統では
+    # berth 差異: raw_only (masked 層を作らない取り込み・admin 限定) は falcon では
     # masked-only §9-7 で廃止済みだが berth は当該変更を受けておらず現存する。本同送は
     # raw_mode のみを対象とし、raw_only の既存挙動は温存する。
     if bool(body.get("raw_mode", False)):
@@ -867,7 +867,7 @@ def publish_diff(request: Request, col_id: str):
 # publish_async)、および rag.py 側の判定 2 関数もあわせて消してある (死材を残さない)。
 #   根拠: 主キー (chunks.chunk_id) にまとまりの識別子を含めたため、同じファイルが別の
 #   まとまりに在っても主キーはぶつからない。同一まとまりへの再publish は従来どおり
-#   file_hashes の差分で更新される (姉妹系統の routers/collections.py:643-646 と同じ)。
+#   file_hashes の差分で更新される (falcon routers/collections.py:643-646 と同じ)。
 @router.post("/api/collections/{col_id}/publish", response_model=None)
 # ingest-eventloop-unblock-20260727 (GA ブロッカー①):
 #   この関数は publish_collection_iter を await 無しで最後まで回す。PDF 抽出・チャンク化・
@@ -1448,11 +1448,11 @@ def release_collection_lock(request: Request, col_id: str):
     return {"ok": True}
 
 
-# DD-CYN-0132 4-1 (姉妹系統の unlinked-files-20260817 の移植): 再スキャンで見つかった新しい
+# DD-CYN-0132 4-1 (falcon unlinked-files-20260817 の移植): 再スキャンで見つかった新しい
 # ファイルは、どのコレクションにも自動では紐づけない (利用者が意図しない資料が黙って
 # 取り込まれると、マスキングと権限の設計に触れる)。代わりに「紐づいていないファイル」を
 # 見せる口と、選んで紐づける口を置く。紐づけただけでは公開しない。公開は従来どおり
-# 利用者が Publish を押す。姉妹系統 routers/collections.py の同名2口と同じ振る舞い。
+# 利用者が Publish を押す。falcon routers/collections.py の同名2口と同じ振る舞い。
 @router.get("/api/collections/{col_id}/unlinked-files", response_model=None, summary="未結線ファイル一覧 (admin 限定)")
 def get_unlinked_files(request: Request, col_id: str):
     _require_admin(request)

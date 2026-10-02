@@ -3,7 +3,7 @@
 Stage R7 C-4 で新設。Phase 3 Recon Agent J §1-3 中で「Stage 2/3 状態遷移 grep ヒット 0」と
 指摘された機能を実装する。
 
-状態遷移 (Smart Ingestion 仕様 / 内部設計メモ参照):
+状態遷移 (Smart Ingestion 仕様 / Notion 35994ef8 参照):
     draft → ingested → ready
             (Stage 2)   (Stage 3)
 

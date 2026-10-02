@@ -1,5 +1,3 @@
-English | [日本語](uninstall-upgrade.ja.md)
-
 # Stop, upgrade and uninstall
 
 `ops/linux.sh` has no `uninstall` subcommand. This page shows how to stop Berth, upgrade it, and remove it by hand, using only what the scripts provide. Steps marked **DESTRUCTIVE** delete data that cannot be recovered without a backup.

@@ -8,7 +8,7 @@
 //   受け口が can_add_from_screen: false を返す。その場合も「足す」の押し口は消さず (決定 31-1)、
 //   押すと、ノードの取り込みフォルダ (Pod からは /app/ingest) の下へフォルダを置く案内を出す。
 
-const IR_CONTAINER_ADD_LINE = 'mkdir -p "$BERTH_DATA_DIR/ingest/my-docs"';
+const IR_CONTAINER_ADD_LINE = 'mkdir -p "$HAN_SOLO_DATA_DIR/ingest/my-docs"';
 let _irState = { current: '', parent: null, home: '', canAdd: false, restartNeeded: false, addLine: '' };
 
 async function renderIngestRoots() {
@@ -177,7 +177,7 @@ function irOpenTerminalGuide() {
       <h3 style="margin:0 0 10px 0;">📁 ${lj('Add an ingest source', '取り込み元を足す')}</h3>
       <div style="margin-bottom:6px;">${lj('In the container / Kubernetes form, ingest sources are not added from this screen.', 'コンテナ / Kubernetes 形態では、この画面から取り込み元は足しません。')}</div>
       <div style="margin-bottom:4px;">${lj('Instead, put the folder you want to read under the ingest directory of the node. The pods see that directory as /app/ingest.', 'かわりに、ノードの取り込みフォルダの下に、読ませたいフォルダを置いてください。Pod からは /app/ingest として見えます。')}</div>
-      <div style="margin-left:16px;color:#475569;">${lj('Linux / WSL install (ops/linux.sh): $BERTH_DATA_DIR/ingest/&lt;folder&gt;', 'Linux / WSL の導入 (ops/linux.sh): $BERTH_DATA_DIR/ingest/&lt;フォルダ&gt;')}</div>
+      <div style="margin-left:16px;color:#475569;">${lj('Linux / WSL install (ops/linux.sh): $HAN_SOLO_DATA_DIR/ingest/&lt;folder&gt;', 'Linux / WSL の導入 (ops/linux.sh): $HAN_SOLO_DATA_DIR/ingest/&lt;フォルダ&gt;')}</div>
       <div style="margin:6px 0 4px;">${lj('Example (run on the node):', '例（ノード上で実行）:')}</div>
       <code id="ir-add-line" style="display:inline-block;margin:2px 0 4px 16px;padding:6px 10px;background:#0f172a;color:#e2e8f0;border-radius:4px;">${escapeHtml(line)}</code>
       <div style="margin-left:16px;color:#475569;margin-bottom:10px;">${lj('No restart is needed: the folder appears in the folder picker of "Add source" and Quick Start.', '起動し直しは要りません。置いたフォルダは「ソース追加」とクイックスタートのフォルダ選択に出ます。')}</div>

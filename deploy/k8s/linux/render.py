@@ -44,7 +44,7 @@ def main():
         values[name]=file.read_text().strip()
     config=yaml.safe_load((REPO/"cynovela.yaml").read_text())
     config["database"]={"backend":"postgres","postgres":{"host":"cynovela-pgvector","port":5432,
-        "dbname":"cynovela","user":"cynovela","password_file":"/run/berth-secrets/pg_password","pool_max":10}}
+        "dbname":"cynovela","user":"cynovela","password_file":"/run/hansolo-secrets/pg_password","pool_max":10}}
     config["vector_store"]["provider"]="pgvector"
     config["queue"].update(enabled=True,url="redis://cynovela-redis:6379/0")
     config["worker"]={"embedding_mode":"minimal"}
@@ -88,7 +88,7 @@ def main():
             container["livenessProbe"]["httpGet"]["path"]="/api/health"
             container["startupProbe"]={"httpGet":{"path":"/api/health","port":8765},"periodSeconds":10,"failureThreshold":90}
         container["env"].append({"name":"CYNOVELA_IMAGE_TAG","value":a.image})
-        container["volumeMounts"].append({"name":"db-secret","mountPath":"/run/berth-secrets","readOnly":True})
+        container["volumeMounts"].append({"name":"db-secret","mountPath":"/run/hansolo-secrets","readOnly":True})
         pod["volumes"].append({"name":"db-secret","secret":{"secretName":"cynovela-secret","items":[{"key":"pg_password","path":"pg_password"}]}})
         for volume in pod["volumes"]:
             if volume["name"] in ("models","ingest"):

@@ -189,7 +189,7 @@ import os as _os
 def _token() -> str:
     """API 呼び出しに使う Bearer トークンを CYNOVELA_TOKEN から取る。
 
-    DD-CYN-0116 X-6 U-1 (姉妹系統の C-B5 の移植): 固定トークン demo-token-user-admin の
+    DD-CYN-0116 X-6 U-1 (falcon C-B5 の移植): 固定トークン demo-token-user-admin の
     フォールバックを撤去した。受け口側 (core/auth.py) で demo-token-* の受理を封鎖した
     ため、返しても必ず 401 になり、利用者には「トークンが無い」ではなく「認証に失敗した」
     としか見えず誤誘導になる。未設定は設定漏れなので、その場で理由の分かる例外にする。

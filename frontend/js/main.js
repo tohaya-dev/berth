@@ -2006,7 +2006,7 @@ async function openQuickStartModal() {
         <button class="btn btn-sm" onclick="qsScanFolder()">${bi('📋 Scan (breakdown preview)','📋 スキャン (内訳プレビュー)')}</button>
       </div>
       <!-- DD-CYN-0094 D -->
-      <div style="margin-top:4px;font-size:12px;color:#64748b;">${lj('If a folder is not in the list: in the container / Kubernetes form, put it under the ingest directory that is mounted into the pods as /app/ingest (Linux / WSL install: $BERTH_DATA_DIR/ingest/&lt;folder&gt;). It shows up here without a restart. In the standalone form, register it with ./launch.sh --add-path &lt;folder path&gt;.', '一覧に無いフォルダは、コンテナ / Kubernetes 形態では、Pod から /app/ingest として見える取り込みフォルダの下（Linux / WSL の導入では $BERTH_DATA_DIR/ingest/&lt;フォルダ&gt;）に置くと、起動し直さなくてもここに出ます。スタンドアロン形態では ./launch.sh --add-path &lt;フォルダのパス&gt; で登録します。')}</div>
+      <div style="margin-top:4px;font-size:12px;color:#64748b;">${lj('If a folder is not in the list: in the container / Kubernetes form, put it under the ingest directory that is mounted into the pods as /app/ingest (Linux / WSL install: $HAN_SOLO_DATA_DIR/ingest/&lt;folder&gt;). It shows up here without a restart. In the standalone form, register it with ./launch.sh --add-path &lt;folder path&gt;.', '一覧に無いフォルダは、コンテナ / Kubernetes 形態では、Pod から /app/ingest として見える取り込みフォルダの下（Linux / WSL の導入では $HAN_SOLO_DATA_DIR/ingest/&lt;フォルダ&gt;）に置くと、起動し直さなくてもここに出ます。スタンドアロン形態では ./launch.sh --add-path &lt;フォルダのパス&gt; で登録します。')}</div>
 
       <div id="qs-preview-host" style="margin-top:12px;"></div>
 

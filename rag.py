@@ -1038,7 +1038,7 @@ def get_embedding_model_load_error() -> dict:
 
 
 # ─── DD-CYN-0116 X-1 / G-9: 索引を作った埋め込みと現在の埋め込みの突き合わせ ───
-# 姉妹系統は CHROMA_PATH/embedding_identity.json に記録するが、berth は API が
+# falcon は CHROMA_PATH/embedding_identity.json に記録するが、berth は API が
 # 2レプリカで走るため、その置き場は Pod ごとの使い捨てになり読み書きが食い違う。
 # ∴ 記録側は既に共有されているもの (Postgres の document_provenance の
 # embedding_version / embedding_model) をそのまま正本として読む。新しい置き場を作らない。
@@ -1185,7 +1185,7 @@ def check_embedding_identity(write_if_absent: bool = False) -> dict:
     - 索引の版が全部いまと同じ → match=True
     - 違う版が1件でも混ざっている → match=False + 明示警告
 
-    write_if_absent は姉妹系統との呼び出し互換のために受けるだけ。berth では
+    write_if_absent は falcon との呼び出し互換のために受けるだけ。berth では
     記録は索引の id そのものが持つので、ここからは何も書かない。
     """
     cur = _current_embedding_identity()
@@ -1791,7 +1791,7 @@ def _boundary_patch_ner(
 # 遮断 (dup-publish-guard-20260710 / dupguard-port-20260713) は撤去した。判定関数
 # find_duplicate_file_publish_conflict と文言関数 duplicate_file_publish_message、および
 # routers/collections.py 側の呼び手 3 経路と包み関数もあわせて消してある (死材を残さない)。
-#   撤去の理由 (姉妹系統の rag.py:179-182 / 姉妹系統の routers/collections.py:643-646 と同じ根拠):
+#   撤去の理由 (falcon rag.py:179-182 / falcon routers/collections.py:643-646 と同じ根拠):
 #     主キー (chunks.chunk_id / parent_chunks.parent_id) の先頭にまとまりの識別子を置いた
 #     ため (_make_logical_chunk_id)、同じファイルが別のまとまりに在っても主キーはぶつから
 #     ない。後勝ちで先発コレクションの行が付け替わる (伏字あり/なし取り違え) 事故は
@@ -3098,7 +3098,7 @@ def build_bm25_index(workspace_id: str, chunks: list[dict], tier: str = "raw") -
 
 
 def _bm25_chunks_from_index(workspace_id: str, tier: str = "masked") -> list[dict]:
-    """bm25-index-source (姉妹系統の 20260725 の移植 / DD-CYN-0116 X-2): 索引側の伏字済み
+    """bm25-index-source (falcon 20260725 の移植 / DD-CYN-0116 X-2): 索引側の伏字済み
     document から BM25 用のチャンク一覧を作る。
 
     関係DB 側の本文が鍵不一致で復号できない環境でも BM25 を成立させるための代替ソース。
@@ -3398,7 +3398,7 @@ async def expand_query_variants(
     endpoint が空なら cynovela.yaml の llm.base_url + "/v1" を使う (PORTABILITY FIX 20260527 P4)。
     LLM 呼び出し失敗時は元クエリ単独でフォールバック。
 
-    masked-only §9-6 (DD-CYN-0115・姉妹系統の vector-tier-masked-only-20260724 と同型): LLM へ渡す
+    masked-only §9-6 (DD-CYN-0115・falcon vector-tier-masked-only-20260724 と同型): LLM へ渡す
     問い合わせ文は伏字処理にかけてから使う (生の問い合わせを外部宛含む LLM へ出さない)。
     """
     if not query or n <= 1:
@@ -3524,7 +3524,7 @@ async def generate_hyde_text(
 
     LLM 失敗時は元クエリをそのまま返してフォールバック。
 
-    masked-only §9-6 (DD-CYN-0115・姉妹系統と同型): HyDE は問い合わせ文を LLM へ渡す経路だが
+    masked-only §9-6 (DD-CYN-0115・falcon と同型): HyDE は問い合わせ文を LLM へ渡す経路だが
     宛先ガードが無かった。伏字処理を入口でかけ、生の問い合わせが LLM (外部宛含む) へ出ない
     ように倒す。生成された仮想文章はこの後 rag_retrieve 冒頭で再度伏字にかけてから埋め込まれる。
     """

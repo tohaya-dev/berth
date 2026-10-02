@@ -639,7 +639,7 @@ const POLICY_TYPES = ["EMAIL", "PHONE_JP", "PHONE_LAND", "CREDIT", "MYNUMBER", "
 //   これらは (a) の CREDIT / MYNUMBER / IPV4 / PHONE_JP / EMAIL と同じ物を指す別名だが、
 //   別のキーとして届くので行も別に持つ (件数を足し合わせる処理は入れない。
 //   数え方を変えると受領書・一覧・公開履歴の実測と食い違うため)。
-//   実測 (2026-08-02・姉妹系統の写し・pii_mode: lite で 1 ファイルを取り込み):
+//   実測 (2026-08-02・chewie 写し・pii_mode: lite で 1 ファイルを取り込み):
 //     直す前の取り込み画面 … 「🔒PHONE_INTL×2 🔒IP_ADDRESS×1 🔒CREDIT_CARD×1」と生の値が出ていた
 const PII_TYPE_LABELS = {
   PERSON_JP:    { icon: '👤', en: 'Name',                    ja: '氏名' },
@@ -3466,9 +3466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           userObj = { ...stored, ...me };
         } catch (_) { /* ignore parse error */ }
       }
-      // agentK K-5 (2026-09-22): /api/auth/me が must_change_password を返すようになったので、
-      // リロード時の自動ログインでも初回パスワード変更モーダルを出す (ログイン経路と同じ判定)。
-      await _enterApp({ user: userObj, token: storedToken, must_change_password: !!me.must_change_password });
+      await _enterApp({ user: userObj, token: storedToken });
     } else {
       // token 無効 → クリア
       localStorage.removeItem('cynovela_token');
@@ -3645,23 +3643,14 @@ window._submitMustChangePw = async function () {
       body: JSON.stringify({ current_password: current, new_password: newPw }),
     });
     if (res.ok) {
-      // agentK K-1 (2026-09-22): 変更前に発行された JWT / refresh token はサーバー側で失効する
-      // (password_changed_at)。応答に載る新しいトークンへ差し替えて、同じ画面のまま続行できるようにする。
-      try {
-        const d = await res.json().catch(() => ({}));
-        const newTok = d && (d.access_token || d.token);
-        if (newTok) {
-          localStorage.setItem('cynovela_token', newTok);
-          if (d.refresh_token) localStorage.setItem('cynovela_refresh_token', d.refresh_token);
-          State.token = newTok;
-          API.token = newTok;
-          try { _scheduleTokenRefresh(newTok); } catch (e) { /* ignore */ }
-        }
-      } catch (e) { /* ignore */ }
       const overlay = document.getElementById('must-change-pw-overlay');
       if (overlay) overlay.style.display = 'none';
-      // polling-401-fix (2026-09-21): 変更前は管理 API が 403 (初回パスワード変更が必要) を返し、
-      // それを見た定期ポーリングは止まっている。(上で差し替えた新 token で) 403 が解けるので、ここで張り直す。
+      // berth-security ④: 変更で古いリフレッシュトークンは全て消える。返ってきた新しい1本を控える。
+      // ③: 変更前は一般の API も断られていたので、変更後に画面の中身を取り直す。
+      const d = await res.json().catch(() => ({}));
+      try { if (d.refresh_token) localStorage.setItem('cynovela_refresh_token', d.refresh_token); } catch (e) { /* ignore */ }
+      if (typeof refreshAllData === 'function') { try { await refreshAllData(); } catch (e) { /* ignore */ } }
+      // 変更前の認証エラーで停止した定期ポーリングも張り直す。
       try { if (typeof startAlertPolling === 'function') startAlertPolling(); } catch (e) { /* ignore */ }
       try { if (typeof window._checkEmbeddingState === 'function') window._checkEmbeddingState(true); } catch (e) { /* ignore */ }
     } else {

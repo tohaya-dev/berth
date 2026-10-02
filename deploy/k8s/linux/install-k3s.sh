@@ -2,14 +2,11 @@
 # Dedicated single-node Linux reference substrate. Does not install a container desktop.
 set -euo pipefail
 umask 077
-# BERTH_* is the primary name; HAN_SOLO_* is still honoured as a deprecated alias (BERTH_* wins when both are set).
-DATA="${BERTH_DATA_DIR:-${HAN_SOLO_DATA_DIR:-}}"
-CONTEXT="${BERTH_CONTEXT:-${HAN_SOLO_CONTEXT:-}}"
-: "${DATA:?Set BERTH_DATA_DIR (deprecated alias: HAN_SOLO_DATA_DIR) to a dedicated Linux data directory}"
-: "${CONTEXT:?Set BERTH_CONTEXT (deprecated alias: HAN_SOLO_CONTEXT) to a dedicated name}"
+DATA="${HAN_SOLO_DATA_DIR:?Set HAN_SOLO_DATA_DIR to a dedicated Linux data directory}"
+CONTEXT="${HAN_SOLO_CONTEXT:?Set HAN_SOLO_CONTEXT to a dedicated name}"
 VERSION="${K3S_VERSION:-v1.35.5+k3s1}"
-PORT="${BERTH_KUBE_PORT:-${HAN_SOLO_KUBE_PORT:-26443}}"
-[[ "$CONTEXT" =~ ^(hansolo|berth)-[a-z0-9-]+$ ]] || { echo "Use a dedicated berth-* context (legacy hansolo-* is still accepted)"; exit 2; }
+PORT="${HAN_SOLO_KUBE_PORT:-26443}"
+[[ "$CONTEXT" =~ ^hansolo-[a-z0-9-]+$ ]] || { echo "Use a dedicated hansolo-* context"; exit 2; }
 DATA="$(realpath -m "$DATA")"
 [[ "$DATA" != /mnt/* && "$DATA" != / && "$DATA" != "$HOME" ]] || exit 2
 [[ "$(uname -m)" = x86_64 ]] || { echo "This reference installer was validated on amd64 only"; exit 2; }
@@ -49,4 +46,4 @@ chmod 600 "$DATA/client.yaml"
 export KUBECONFIG="$DATA/client.yaml"
 kubectl config rename-context default "$CONTEXT"
 kubectl --context "$CONTEXT" wait --for=condition=Ready node/"$CONTEXT" --timeout=300s
-echo "Use KUBECONFIG=$DATA/client.yaml and BERTH_CONTEXT=$CONTEXT"
+echo "Use KUBECONFIG=$DATA/client.yaml and HAN_SOLO_CONTEXT=$CONTEXT"

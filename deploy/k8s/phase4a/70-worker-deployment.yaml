@@ -46,7 +46,7 @@ spec:
           env:
             - name: CYNOVELA_SECRET_KEY
               valueFrom: { secretKeyRef: { name: cynovela-secret, key: secret_key } }
-            # DD-CYN-0115 M-10: Pod 内時計の文字化がずれないよう機材の時間帯を渡す (姉妹系統の DD-CYN-0086 の K8s 読み替え)
+            # DD-CYN-0115 M-10: Pod 内時計の文字化がずれないよう機材の時間帯を渡す (falcon DD-CYN-0086 の K8s 読み替え)
             - { name: TZ, value: "Asia/Tokyo" }
           volumeMounts:
             - { name: config, mountPath: /app/cynovela.yaml, subPath: cynovela.yaml }

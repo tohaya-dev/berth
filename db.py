@@ -766,16 +766,6 @@ def migrate_db(conn) -> None:
     except Exception:
         pass
 
-    # agentK K-1 (q5 B1): パスワード変更時刻 (UTC epoch 秒)。これより前に発行された
-    # アクセストークン (JWT iat) を core/auth.py _require_authenticated が拒否する。
-    # NULL = 未変更 (従来どおり通す)。Postgres 側は deploy/postgres/cynovela_pg_schema.sql。
-    try:
-        conn.execute(
-            "ALTER TABLE users ADD COLUMN password_changed_at INTEGER"
-        )
-    except Exception:
-        pass
-
     # Batch-B S1-3: JWT リフレッシュトークン管理テーブル
     conn.execute("""
         CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -793,6 +783,9 @@ def migrate_db(conn) -> None:
         "CREATE INDEX IF NOT EXISTS idx_rt_expires ON refresh_tokens(expires_at)"
     )
 
+    # berth-security ④: トークンの版と、それを進めるトリガー
+    _ensure_token_revocation_trigger(conn)
+
     # PDF-mode 差分: file_hashes に pdf_mode 列を後足し（既存DB互換、存在時は無視）
     try:
         conn.execute(
@@ -802,6 +795,42 @@ def migrate_db(conn) -> None:
         pass
 
     conn.commit()
+
+
+def _ensure_token_revocation_trigger(conn) -> None:
+    """berth-security ④: パスワード (password_hash) か有効/無効 (is_active) が変わったら、
+    その利用者のトークンの版を1つ進め、リフレッシュトークンを全て消す。
+
+    版はアクセストークンに tv として入り、core/auth.py が毎回いまの版と比べる。
+    書き換える経路 (本人の変更・管理者の再設定・--reset-admin・無効化/再有効化・
+    PATCH の is_active) は複数あり、経路ごとに書き足すと漏れるため DB のトリガー1か所で行う。
+    同時に token_keep_jti (変更した本人の1本を生かす印) も消す。印は変更の口
+    (routers/auth.py change-password) だけがこの後に付け直す。
+    Postgres 側は deploy/postgres/cynovela_pg_schema.sql に同じ働きの関数とトリガーを置く。
+
+    列 token_version (版) と token_keep_jti (変更した本人の1本だけを生かす印) もここで足す
+    (users 表を作り直す migrations の後に呼んでも列とトリガーが揃うように)。
+    """
+    for _tv_col in (
+        "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN token_keep_jti TEXT",
+    ):
+        try:
+            conn.execute(_tv_col)
+        except Exception:
+            pass
+    conn.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_users_revoke_tokens
+        AFTER UPDATE OF password_hash, is_active ON users
+        WHEN NEW.password_hash IS NOT OLD.password_hash
+          OR COALESCE(NEW.is_active, 1) IS NOT COALESCE(OLD.is_active, 1)
+        BEGIN
+            UPDATE users SET token_version = COALESCE(token_version, 0) + 1,
+                             token_keep_jti = NULL
+             WHERE id = NEW.id;
+            DELETE FROM refresh_tokens WHERE user_id = NEW.id;
+        END
+    """)
 
 
 # ─── BLOCK 2: パスワードハッシュ／検証 ───
@@ -971,7 +1000,7 @@ def list_file_hashes(conn, collection_id: str) -> list:
 def _rebase_relative_files(conn) -> int:
     """dist-file-id-rebase-20260802 (DD-CYN-0020 U-7): 配布物由来の相対参照を実行時に作り直す。
 
-    姉妹系統 (単体配布版) の配布用 demo.db を作る道具 (tools/build_clean_demo_db.py) は
+    falcon/chewie の配布用 demo.db を作る道具 (tools/build_clean_demo_db.py) は
     files.path 等を「./dummy-corpus/...」へ相対化するが、識別子 files.id は梱包の場
     (mktemp の一時ステージ) の絶対パス由来のまま残る。走査 (_do_scan) の照合鍵は
     id = md5(source_id|NFC(絶対パス))[:16] だけなので、受け取り手の最初の再スキャンで
@@ -981,7 +1010,7 @@ def _rebase_relative_files(conn) -> int:
     よって絶対パスが確定する唯一の時点 = 受け取り手の起動時に、ここで作り直す。
 
     berth の道具は現状パスを相対化しないため、この系統では対象 0 件で素通りする
-    (guard)。道具が姉妹系統と同型に追随したときに同じ機構で受けるための同型実装。
+    (guard)。道具が falcon/chewie 同型に追随したときに同じ機構で受けるための同型実装。
 
     規則は走査側と同一 (走査側の規則は変えない):
       絶対化 = os.path.abspath(os.path.expanduser(パス))   (server.py _do_scan と同じ)
@@ -1110,6 +1139,9 @@ def init_db(demo: bool = False):
             import logging as _logging_for_mig
 
             _logging_for_mig.getLogger("cynovela.db").warning("migrations apply_all 失敗 (init_db 起動継続): %s", _mig_e)
+        # berth-security ④: 0001/0007 は users 表を作り直す (DROP → RENAME) ため、表に付いた
+        # トリガーも一緒に消える。migrations の後にもう一度張り直す (IF NOT EXISTS で冪等)。
+        _ensure_token_revocation_trigger(conn)
 
         # Always insert seed data (skip if already exists).
         # 個人名は使わず役割名 (Admin / Viewer) を使う方針。
@@ -1242,7 +1274,7 @@ def init_db(demo: bool = False):
         # と同じ「username か password_hash が未設定の初回のみ」条件で seed し、
         # 既に値がある行 (パスワード変更済み等) は触らない。
         #
-        # DD-CYN-0115 M-3 (姉妹系統の DD-CYN-0070 N-4 と同じ振る舞い): このブロックは従来
+        # DD-CYN-0115 M-3 (falcon DD-CYN-0070 N-4 と同じ振る舞い): このブロックは従来
         # `if demo:` の中に在り、引数なし (本番) では閲覧者の資格情報が作られず、
         # 「行は作られるが値が空」のまま案内の値で入れなかった。配布仕様書 §5-4 は
         # 利用者を管理者と閲覧者の2つと定め、受け入れ項は「閲覧者で入れる」を合格条件と

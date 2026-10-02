@@ -10,10 +10,6 @@ Berth source retains its MIT LICENSE. This does not relicense bundled dependenci
 | Redis server 7.2 | github.com/redis/redis | BSD-3-Clause; renderer selects 7.2 instead of floating 7 |
 | redis Python client 8.1.0 | github.com/redis/redis-py | MIT |
 | psycopg 3.3.5 | psycopg.org | LGPL-3.0; retain license/source availability and replacement rights |
-| psycopg-pool 3.3.x / psycopg-binary 3.3.5 | psycopg.org | LGPL-3.0; same obligations as psycopg |
-| spaCy model ja_core_news_sm | explosion/spacy-models | MIT code; the model data derives from UD Japanese GSD (CC BY-SA 4.0, Megagon Labs / Universal Dependencies) - keep this attribution when redistributing the model |
-| unidic-lite (UniDic 2.1.2) | pypi.org/project/unidic-lite | triple-licensed GPL / LGPL / BSD; the BSD option is elected |
-| SudachiDict-core | pypi.org/project/SudachiDict-core | Apache-2.0 |
 | PyTorch CPU 2.14.0 | pytorch.org | BSD/Apache/MIT and bundled component notices |
 | spaCy 3.8.16 | spacy.io | MIT |
 | ChromaDB 1.5.9 | github.com/chroma-core/chroma | Apache-2.0; vulnerability triage below |
@@ -37,7 +33,5 @@ References: [CVE-2026-45829 advisory](https://github.com/advisories/GHSA-f4j7-r4
 The Linux lock was subsequently updated to FastAPI 0.141.1, Starlette 1.3.1, prometheus-fastapi-instrumentator 8.1.0, MCP 1.28.1, setuptools 84.0.0 and wheel 0.48.0. The upgrade probe passed the scratch RAG/RBAC/CLI/MCP acceptance, including the metrics middleware that had blocked older unpinned combinations. The Mac requirements remain unchanged.
 
 A clean resolver rejected cryptography 50.0.0 because presidio-anonymizer 2.2.364 requires cryptography <49. Linux therefore retains compatible 48.0.1 and records its outstanding advisories. The runtime probe alone was insufficient; clean installation and pip check are required gates. No masking dependency was removed.
-
-The Linux lock moved lxml from 6.0.4 to 6.1.3 for CVE-2026-41066 (XXE through the default `iterparse()` / `ETCompatXMLParser()` configuration; Berth code does not call those APIs). A clean Podman build from the lock and `pip check` passed, and the test suite showed no new failures. The Mac requirements remain unchanged.
 
 The installed Python metadata audit found 179 distributions, all with a license declaration, classifier or bundled license file. docs/oss/dependency-licenses.csv records this inventory, including the compatible cryptography version. This resolves missing top-level Syft license fields as metadata gaps; it does not suppress vulnerability findings or replace bundled notices.

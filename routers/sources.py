@@ -265,10 +265,10 @@ async def create_source(request: Request):
         raise HTTPException(400, f"sensitive path is not allowed: {_normalized}")
     if ".." in path.split(os.sep):
         raise HTTPException(400, "relative path traversal is not allowed")
-    # ingest-path-fullfix-20260921 C-1: フォルダ選択 (GET /api/browse) と同じ境界を登録側にも掛ける。
-    # 従来は禁止接頭辞と `..` だけを見ており、取り込み元の外の絶対パスや、根の外へ逃げる
-    # symlink をそのまま登録できた。DB へ書く前に判定する (保存値は従来どおり正規化済みパス)。
-    _assert_source_path_in_ingest_roots(_normalized)
+    # berth-security ①: 断り表に加えて、取り込み元の中であることを実体パスで確かめる。
+    # 断る応答は上の断り表と同じ 400 に揃える (既存の試験契約 200/201/400 を変えない)。
+    if resolve_within_ingest_roots(_normalized) is None:
+        raise HTTPException(400, "取り込み元の外は登録できません。先に取り込み元に足してください")
     sid = new_id()
     conn = get_db()
     # connleak-fix-20260709 (アプリ版検証済み修正の逐語ポート):
@@ -672,6 +672,33 @@ def _load_ingest_roots() -> list:
         return []
 
 
+def resolve_within_ingest_roots(path: str) -> str | None:
+    """berth-security ①: path が足してある取り込み元の中 (根そのものを含む) にあれば
+    実体パス (realpath) を返す。外なら None。
+
+    従来 POST /api/sources と /api/folder-scan-preview は、既知の危ない場所を断る
+    断り表 (/etc・~/.ssh 等) だけで、取り込み元の外でも登録・走査できていた
+    (表に無い場所・表を避ける別名や symlink を通すと外へ出られた)。
+    判定は両辺を realpath で解いてから前方一致で行う (symlink で外へ逃げる経路を断つ)。
+    入れ物で動く形では根が /app/ingest/<name> で解けるため、/app/ingest も根として扱う
+    (routers/files.py の /api/browse と同じ扱い)。根が1つも無いときは何も通さない。
+    """
+    try:
+        _target = os.path.realpath(os.path.abspath(os.path.expanduser(path)))
+    except Exception:
+        return None
+    _bases = [r.get("host_path") or "" for r in _load_ingest_roots()]
+    if os.path.isdir("/app/ingest"):
+        _bases.append("/app/ingest")
+    for _b in _bases:
+        if not _b:
+            continue
+        _rb = os.path.realpath(os.path.abspath(os.path.expanduser(_b)))
+        if _target == _rb or _target.startswith(_rb.rstrip(os.sep) + os.sep):
+            return _target
+    return None
+
+
 def migrate_ingest_roots_to_db() -> int:
     """起動時に一度だけ、ファイル側の根を DB へ取り込む。
 
@@ -766,7 +793,7 @@ def list_ingest_roots(request: Request):
         "restart_required_to_apply": _in_container(),
         # コンテナ / Kubernetes 形態では入口スクリプトは使えない。ノードの取り込みフォルダの下へ置く。
         "add_from_terminal": (
-            'mkdir -p "$BERTH_DATA_DIR/ingest/<folder>"' if _in_container() else "./launch.sh --add"
+            'mkdir -p "$HAN_SOLO_DATA_DIR/ingest/<folder>"' if _in_container() else "./launch.sh --add"
         ),
         "start_dir": _browse_start_dir() if not _in_container() else "",
     }

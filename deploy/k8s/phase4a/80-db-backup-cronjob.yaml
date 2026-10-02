@@ -1,0 +1,41 @@
+# DB 定期バックアップ (instr-mbp-k8s-rebuild-slim-model-permanence-v2-20260719 §12)
+# pg_dumpall を毎日 03:00 JST (18:00 UTC) に実行し、ノードの /var/lib/cynovela-backups
+# (= ホスト恒久領域 ~/dt-backups/k8s-pg の rw bind。cluster-create-runbook-20260719.md 参照) へ書き出す。
+# 世代はバックアップ マスタ方針書に合わせ5世代保持・古い順に削除。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cynovela-db-backup
+  namespace: cynovela
+spec:
+  schedule: "0 18 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: pg-backup
+              image: docker.io/pgvector/pgvector:pg16
+              imagePullPolicy: IfNotPresent
+              env:
+                - { name: PGPASSWORD, value: cynovela }
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  pg_dumpall -h cynovela-pgvector -U cynovela > "/backup/pg-dumpall-$TS.sql"
+                  tail -5 "/backup/pg-dumpall-$TS.sql" | grep -q "cluster dump complete"
+                  ls -t /backup/pg-dumpall-*.sql | tail -n +6 | xargs -r rm --
+                  echo "backup done: pg-dumpall-$TS.sql ($(wc -c < "/backup/pg-dumpall-$TS.sql") bytes)"
+                  ls -l /backup/
+              volumeMounts:
+                - { name: backup, mountPath: /backup }
+          volumes:
+            - name: backup
+              hostPath: { path: /var/lib/cynovela-backups, type: Directory }

@@ -1,11 +1,31 @@
-# NOTICE
+# NOTICE — Cynovela v3.0.0「Kenobi」配布注記
 
-Berth is distributed under the MIT License (see `LICENSE`).
+本パッケージは **Cynovela v3.0.0「Kenobi」** のスタンドアロン フルパッケージ（モデル同梱）です。
 
-Third-party components, models and data bundled with or downloaded by this software keep their own
-licenses. The list of components, their licenses and the obligations they carry is maintained in
-`THIRD_PARTY_NOTICES.md`; the per-package inventory of the Python runtime is in
-`docs/oss/dependency-licenses.csv`, and full license texts of vendored front-end libraries are in
-`docs/oss/licenses/`.
+## 配布区分（重要）
 
-This file carries no additional attribution requirements of its own.
+- 本パッケージは **社内限定配布版** です。社外公開・OSS 可搬物としては扱わないでください。
+- 同梱のデモデータ・ドキュメントには、ストレージ製品名等の実務ドメイン用語が含まれます。これらは社内利用を前提に許容したものです。外部公開時は別途サニタイズ工程が必要です。
+
+## セキュリティ注記（実運用前に必ず実施）
+
+同梱の暗号鍵および既定アカウントは **デモ用** です。検証・学習・デモ目的でのみ利用してください。
+
+実運用に供する場合は、利用前に必ず次を実施してください。
+
+1. **暗号鍵の再生成**: 同梱の `store/secret.key` はデモ用の鍵です。実運用では破棄し、新しい鍵を生成してください。
+2. **全アカウントのパスワード変更**: 既定の管理者のユーザー名は `cynovela`、閲覧者は `demo` です（2026-08-02 実測: 同梱 demo.db の users 表）。これらのパスワードはデモ用です。`server.py --reset-admin` 等で管理者パスワードをリセットし、全アカウントのパスワードを変更してください。
+3. **公開範囲の確認**: 既定バインドは `127.0.0.1` です。LAN 公開は `--lan` を明示した場合のみ有効です。公開範囲を必ず確認してください。
+
+## 起動（デモ）
+
+```bash
+unset SSL_CERT_FILE
+conda run -n cynovela python server.py --demo
+# ブラウザ: http://127.0.0.1:8765
+```
+
+詳細は同梱の `README.md` / `STARTUP.md` を参照してください。
+
+---
+本注記は配布パッケージ作成時に同梱されたものです（v300-kenobi-release-package）。
