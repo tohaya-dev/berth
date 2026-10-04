@@ -1,68 +1,42 @@
 # Berth
 
-Berth is the Kubernetes-native Cynovela runtime.
-It provides a local Kubernetes-based runtime for RAG, guardrails, provider switching, API workers, PostgreSQL + pgvector, Redis, CLI, and HTTP MCP.
+Berth is the Kubernetes-based runtime for Cynovela. It runs RAG, guardrails, provider switching, API workers, PostgreSQL + pgvector, Redis, CLI, and HTTP MCP on a local Kubernetes environment.
 
-Berth does not bundle the answer-generation LLM.
-Use LM Studio, Ollama, or another OpenAI-compatible endpoint as an external provider.
+Berth does not bundle the answer-generation LLM. Connect LM Studio, Ollama, or another OpenAI-compatible API as an external provider.
 
-Berth `v1.0.0-ga` is the current public GA line.
-**Reference path:** macOS Apple Silicon + Podman + k3d.
-**Documented Windows/Linux path:** Windows WSL2 + Ubuntu 24.04.
-**Runtime contract:** Kubernetes / Linux workloads.
+Berth `v1.0.0-ga` is the current public GA line. Its runtime contract is Kubernetes / Linux workloads.
 
-## Start here
-
-New users should follow this path.
-
-### 1. Install prerequisites
-
-**macOS Apple Silicon:** Git, Podman, k3d, and kubectl.
-**Windows:** Windows 11, WSL2, Ubuntu 24.04, and Git. Follow the [Linux / WSL2 guide](docs/oss/linux-wsl.md) before starting.
-
-### 2. Download Berth
+## Quick start
 
 ```bash
 git clone https://github.com/tohaya-dev/berth.git
 cd berth
-```
-
-If you do not use Git, open the GitHub page, press **Code**, then **Download ZIP**. After extracting the ZIP, open a terminal in the extracted `berth` folder.
-
-### 3. Start Berth
-```bash
 ./ops/status.sh
 ./ops/start.sh
 ./ops/verify.sh
 ```
 
-### 4. Open Berth
-Open this URL in your browser: `http://127.0.0.1:18765`
+Open `http://127.0.0.1:18765` in your browser. Berth is ready when `./ops/verify.sh` succeeds and the URL opens.
 
-`status.sh` shows the current state, `start.sh` starts Berth, and `verify.sh` checks it.
+## System requirements
 
-### 5. Confirm that it works
+- macOS Apple Silicon + Podman + k3d
+- or Windows / WSL2 Ubuntu 24.04
+- or Windows / WSL2 Rocky 9
+- kubectl
+- local Kubernetes environment
 
-`./ops/verify.sh` should finish successfully. You should also be able to open `http://127.0.0.1:18765` in a browser. If either check fails, see [Troubleshooting](docs/oss/troubleshooting.md).
+The macOS path above is the reference local path. Windows users should follow the [Linux / WSL2 guide](docs/oss/linux-wsl.md).
 
-### 6. Stop Berth
+If you do not use Git, choose **Code** → **Download ZIP** on GitHub, extract the ZIP, and open a terminal in the extracted `berth` folder.
+
+## Stop Berth
 
 ```bash
 ./ops/stop.sh
 ```
 
-### 7. More guides
-
-- [Japanese README](README.ja.md)
-- [Start Here](START-HERE.en.md)
-- [日本語の Start Here](START-HERE.md)
-- [Linux / WSL2 guide](docs/oss/linux-wsl.md)
-- [Security](SECURITY.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
-
 ## What Berth runs
-
-Berth keeps the runtime services in Kubernetes:
 
 - API and worker replicas
 - PostgreSQL with pgvector
@@ -71,32 +45,19 @@ Berth keeps the runtime services in Kubernetes:
 - provider switching
 - CLI and HTTP MCP access
 
-The answer-generation model stays outside Berth. Configure LM Studio, Ollama, or another OpenAI-compatible endpoint after the runtime is available.
+The answer-generation model stays outside Berth. Configure LM Studio, Ollama, or another OpenAI-compatible API after the runtime starts.
 
-## Supported entry points
+## More guides
 
-Run the supported scripts from the repository root:
-
-```bash
-./ops/status.sh
-./ops/start.sh
-./ops/verify.sh
-./ops/restart.sh
-./ops/stop.sh
-```
-
-The commands above are the reference macOS local path. Windows WSL2 / Ubuntu 24.04 users should use the environment and commands documented in the [Linux / WSL2 guide](docs/oss/linux-wsl.md).
-
-## Documentation
-
+- [Japanese README](README.ja.md)
+- [Start Here](START-HERE.en.md)
+- [日本語の Start Here](START-HERE.md)
+- [Linux / WSL2 guide](docs/oss/linux-wsl.md)
 - [Startup and recovery](STARTUP.md)
-- [Architecture](docs/architecture.md)
 - [Operations](docs/operations.md)
 - [CLI and MCP](docs/CLI-MCP.md)
-- [System requirements](docs/oss/requirements.md)
-- [Troubleshooting](docs/oss/troubleshooting.md)
-- [Update and uninstall](docs/oss/uninstall-upgrade.md)
-- [GA release notes](docs/release-notes-v1.0.0-ga.md)
+- [Security](SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## License
 

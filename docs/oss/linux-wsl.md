@@ -1,10 +1,11 @@
 # Linux amd64 / Windows WSL2 reference
 
-Berth `v1.0.0-ga` is the current public GA line. This guide documents the validated Windows 11 + WSL2 + Ubuntu 24.04 path and the direct K3s adapter for the PostgreSQL/pgvector + Redis + two API + two worker architecture. Podman is one optional image builder; Kubernetes is the runtime contract. The reference macOS Apple Silicon + Podman + k3d entry points remain in `STARTUP.md` and `ops/`.
+Berth `v1.0.0-ga` is the current public GA line. This guide documents the validated Windows 11 + WSL2 paths and the direct K3s adapter for the PostgreSQL/pgvector + Redis + two API + two worker architecture. Podman is one optional image builder; Kubernetes is the runtime contract. The reference macOS Apple Silicon + Podman + k3d entry points remain in `STARTUP.md` and `ops/`.
 
 | Platform | Evidence |
 |---|---|
 | Windows 11 + WSL2 Ubuntu 24.04 x86_64 | Actual image build, deploy, retrieval and security acceptance |
+| Windows 11 + WSL2 Rocky Linux 9 x86_64 | Documented validated path |
 | Native Ubuntu 24.04 amd64 | Adapter available; separate bare-metal acceptance pending |
 | Ubuntu 22.04 | Not tested in this run |
 | macOS arm64 Podman + k3d | Existing GA reference; not retested or contacted |
@@ -13,7 +14,7 @@ Berth `v1.0.0-ga` is the current public GA line. This guide documents the valida
 
 ## Windows preparation
 
-Use a dedicated Ubuntu 24.04 WSL2 distribution with systemd enabled. Check `wsl --list --verbose` in PowerShell. Install a new distribution if needed with `wsl --install -d Ubuntu-24.04`. Windows feature enablement may require a user-controlled reboot. Do not terminate or modify unrelated distributions.
+Use a dedicated Ubuntu 24.04 or Rocky Linux 9 WSL2 distribution with systemd enabled. Check `wsl --list --verbose` in PowerShell. To install Ubuntu 24.04, use `wsl --install -d Ubuntu-24.04`. Windows feature enablement may require a user-controlled reboot. Do not terminate or modify unrelated distributions. The package-install commands below use Ubuntu's `apt`; on Rocky Linux 9, install the equivalent packages with `dnf` before continuing.
 
 Clone inside the Linux filesystem, for example `~/Projects/berth`, and keep runtime data there. Reserve approximately 16–24 GiB memory and 40 GiB disk for building, model cache and live pods; actual use varies.
 

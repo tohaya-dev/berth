@@ -1,10 +1,16 @@
 # START HERE — Berth
 
-This is the shortest path to a running Berth. The regular commands below are for the reference macOS Apple Silicon path. For Windows WSL2 / Ubuntu 24.04, use the [Linux / WSL2 guide](docs/oss/linux-wsl.md).
+This is the shortest path to a running Berth. Berth is the Kubernetes-based runtime for Cynovela.
 
 ## 1. Install prerequisites
 
-On macOS Apple Silicon, install Git, Podman, k3d, and kubectl. On Windows, prepare Windows 11, WSL2, Ubuntu 24.04, and Git, then follow the [Linux / WSL2 guide](docs/oss/linux-wsl.md).
+- macOS Apple Silicon + Podman + k3d
+- or Windows / WSL2 Ubuntu 24.04
+- or Windows / WSL2 Rocky 9
+- kubectl
+- local Kubernetes environment
+
+Windows users should follow the [Linux / WSL2 guide](docs/oss/linux-wsl.md).
 
 ## 2. Download
 

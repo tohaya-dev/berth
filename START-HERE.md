@@ -1,10 +1,16 @@
 # START HERE — Berth
 
-Berth をとにかく起動するための最短ガイドです。以下の通常コマンドは macOS Apple Silicon の参照環境向けです。Windows WSL2 / Ubuntu 24.04 では [Linux / WSL2 ガイド](docs/oss/linux-wsl.md) を使用してください。
+Berth をとにかく起動するための最短ガイドです。Berth は Cynovela の Kubernetes ベース実行基盤です。
 
 ## 1. 必要なものを入れる
 
-macOS Apple Silicon には Git、Podman、k3d、kubectl をインストールしてください。Windows では Windows 11、WSL2、Ubuntu 24.04、Git を用意し、[Linux / WSL2 ガイド](docs/oss/linux-wsl.md) に従ってください。
+- macOS Apple Silicon + Podman + k3d
+- または Windows / WSL2 Ubuntu 24.04
+- または Windows / WSL2 Rocky 9
+- kubectl
+- ローカルKubernetes環境
+
+Windows では [Linux / WSL2 ガイド](docs/oss/linux-wsl.md) に従ってください。
 
 ## 2. ダウンロードする
 
