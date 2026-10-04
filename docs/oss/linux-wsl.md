@@ -1,6 +1,6 @@
 # Linux amd64 / Windows WSL2 reference
 
-This branch adds a direct K3s adapter to the existing PostgreSQL/pgvector + Redis + two API + two worker architecture. Podman is one optional image builder; Kubernetes is the runtime contract. Existing Mac entry points remain in STARTUP.md and ops/.
+Berth `v1.0.0-ga` is the current public GA line. This guide documents the validated Windows 11 + WSL2 + Ubuntu 24.04 path and the direct K3s adapter for the PostgreSQL/pgvector + Redis + two API + two worker architecture. Podman is one optional image builder; Kubernetes is the runtime contract. The reference macOS Apple Silicon + Podman + k3d entry points remain in `STARTUP.md` and `ops/`.
 
 | Platform | Evidence |
 |---|---|
@@ -15,7 +15,7 @@ This branch adds a direct K3s adapter to the existing PostgreSQL/pgvector + Redi
 
 Use a dedicated Ubuntu 24.04 WSL2 distribution with systemd enabled. Check `wsl --list --verbose` in PowerShell. Install a new distribution if needed with `wsl --install -d Ubuntu-24.04`. Windows feature enablement may require a user-controlled reboot. Do not terminate or modify unrelated distributions.
 
-Clone inside the Linux filesystem, for example `~/Projects/hansolo`, and keep runtime data there. Reserve approximately 16–24 GiB memory and 40 GiB disk for building, model cache and live pods; actual use varies.
+Clone inside the Linux filesystem, for example `~/Projects/berth`, and keep runtime data there. Reserve approximately 16–24 GiB memory and 40 GiB disk for building, model cache and live pods; actual use varies.
 
 ## Fresh installation
 
@@ -44,10 +44,10 @@ Build with a Linux OCI builder. Example using Docker Engine on a build host:
 ```bash
 docker build --platform linux/amd64 --build-arg APT_UPGRADE=1 \
   --build-arg REQUIREMENTS_FILE=locks/requirements-linux-amd64.txt \
-  -f deploy/container/Containerfile -t hansolo:rc-amd64 .
-docker save hansolo:rc-amd64 -o hansolo-amd64.tar
-sudo k3s ctr images import hansolo-amd64.tar
-export IMAGE=docker.io/library/hansolo:rc-amd64
+  -f deploy/container/Containerfile -t berth:local-amd64 .
+docker save berth:local-amd64 -o berth-amd64.tar
+sudo k3s ctr images import berth-amd64.tar
+export IMAGE=docker.io/library/berth:local-amd64
 ./ops/linux.sh install
 ./ops/linux.sh connect
 ```
@@ -67,7 +67,7 @@ For a persistent Windows session, use the [Windows launcher](windows-launcher.md
 `ops/linux.sh status`, `verify`, `restart`, `stop`, `start`, `backup`, and `restore DUMP --yes` target the explicit context/namespace. `connect` must remain running and be restarted after its selected pod exits; a local supervisor can do this.
 
 ```bash
-export PG_BACKUP_DIR="$PWD/_oss-rc-backups"
+export PG_BACKUP_DIR="$PWD/_berth-backups"
 ./ops/linux.sh backup
 kubectl --context "$HAN_SOLO_CONTEXT" -n "$HAN_SOLO_NAMESPACE" \
   scale deploy/cynovela deploy/cynovela-worker --replicas=0

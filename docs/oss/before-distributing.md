@@ -1,6 +1,6 @@
 # Before distributing or deploying for others
 
-A checklist for anyone who redistributes Berth (source, a built image or a model cache) or runs it for other people. Berth is published as a source release candidate. **No application image is published**, so each operator builds their own image, and whoever passes that image on takes on the obligations below.
+A checklist for anyone who redistributes Berth (source, a built image or a model cache) or runs it for other people. Berth `v1.0.0-ga` is the current public source release. **No application image is published**, so each operator builds their own image, and whoever passes that image on takes on the obligations below.
 
 ## Know what you are passing on
 

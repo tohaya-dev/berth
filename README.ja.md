@@ -1,51 +1,103 @@
 # Berth
 
-Berth は、PostgreSQL/pgvector、Redis、複数のAPI・worker replicaを使用する
-Kubernetes-nativeなRAG runtimeです。回答生成LLMは同梱せず、LM Studio、Ollama、
-またはOpenAI互換endpointへ接続します。
+Berth は Kubernetes-native な Cynovela runtime です。
+ローカル環境で RAG、guardrail、provider switching、API worker、PostgreSQL + pgvector、Redis、CLI、HTTP MCP を扱うための実行基盤です。
 
-## 対応状況
+回答生成 LLM そのものは同梱しません。
+LM Studio、Ollama、OpenAI 互換 API などを外部 provider として接続します。
 
-- macOS Apple Silicon上のPodman + k3d: 検証済み参照環境
-- Windows 11 / WSL2 Ubuntu 24.04 amd64: 検証済み
-- Windows 11 / WSL2 Rocky Linux 9 amd64: 検証済み
-- Native Linux: 未検証。一般的なLinux GA対応とは表記しません
+Berth `v1.0.0-ga` は現在の公開 GA ラインです。
+**参照ローカル環境:** macOS Apple Silicon + Podman + k3d。
+**ドキュメント化済みの Windows/Linux 検証経路:** Windows WSL2 + Ubuntu 24.04。
+**runtime contract:** Kubernetes / Linux workloads。
 
-この公開候補はsource配布用です。生成LLM model、実データ、database、秘密情報、
-private Git履歴は含みません。binary/container imageの再配布前には、
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) に記載した依存関係と脆弱性の
-確認が必要です。
+## 最初にここを読んでください
 
-## 最初に読む文書
+初めて使う場合は、この順番で進めてください。
 
-- [`START-HERE.md`](START-HERE.md): 構成と日常操作
-- [`docs/quickstart.md`](docs/quickstart.md): Quick Start
-- [`docs/architecture.md`](docs/architecture.md): architecture
-- [`docs/deployment.md`](docs/deployment.md): deployment
-- [`docs/operations.md`](docs/operations.md): 起動、更新、backup/restore
-- [`docs/oss/requirements.md`](docs/oss/requirements.md): system requirements
-- [`docs/oss/troubleshooting.md`](docs/oss/troubleshooting.md): troubleshooting
-- [`docs/oss/uninstall-upgrade.md`](docs/oss/uninstall-upgrade.md): update / uninstall
-- [`docs/oss/before-distributing.md`](docs/oss/before-distributing.md): 配布前checklist
-- [`docs/CLI-MCP.md`](docs/CLI-MCP.md): CLI / API / MCP
-- [`docs/known-limitations.md`](docs/known-limitations.md): 制限事項
-- [`SECURITY.md`](SECURITY.md): security policy
-- [`docs/oss/model-policy.md`](docs/oss/model-policy.md): model policy
+### 1. 必要なものを入れる
 
-## 基本確認
+**macOS Apple Silicon:** Git、Podman、k3d、kubectl。
+**Windows:** Windows 11、WSL2、Ubuntu 24.04、Git。起動前に [Linux / WSL2 ガイド](docs/oss/linux-wsl.md) を読んでください。
 
-repository rootで以下を実行します。
+### 2. Berth をダウンロードする
 
+```bash
+git clone https://github.com/tohaya-dev/berth.git
+cd berth
+```
+
+Git を使わない場合は、GitHub ページ右上の **Code** → **Download ZIP** からダウンロードしてください。ZIP を展開したあと、展開した `berth` フォルダでターミナルを開いてください。
+
+### 3. Berth を起動する
 ```bash
 ./ops/status.sh
 ./ops/start.sh
 ./ops/verify.sh
 ```
 
-既定のローカルendpointは `http://127.0.0.1:18765` です。別環境へ展開するときは、
-個人環境の絶対pathや既存databaseをコピーせず、設定例とfresh bootstrapを使用してください。
+### 4. ブラウザで開く
+次の URL を開いてください: `http://127.0.0.1:18765`
+
+`status.sh` は現在状態の表示、`start.sh` は起動、`verify.sh` は動作確認を行います。
+
+### 5. うまく動いたか確認する
+
+`./ops/verify.sh` が正常終了し、ブラウザで `http://127.0.0.1:18765` を開ければ起動完了です。失敗する場合は [トラブルシューティング](docs/oss/troubleshooting.md) を確認してください。
+
+### 6. 停止する
+
+```bash
+./ops/stop.sh
+```
+
+### 7. 詳しいガイド
+
+- [START-HERE.md](START-HERE.md)
+- [English README](README.md)
+- [English Start Here](START-HERE.en.md)
+- [Linux / WSL2 ガイド](docs/oss/linux-wsl.md)
+- [Security](SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+## Berth が動かすもの
+
+Berth は次の runtime service を Kubernetes 上で動かします。
+
+- API と worker の replica
+- PostgreSQL + pgvector
+- Redis
+- RAG と guardrail 処理
+- provider switching
+- CLI と HTTP MCP
+
+回答生成 model は Berth の外部に置きます。runtime の起動後に、LM Studio、Ollama、または OpenAI 互換 endpoint を設定してください。
+
+## サポート済みの入口
+
+repository root で次の script を実行します。
+
+```bash
+./ops/status.sh
+./ops/start.sh
+./ops/verify.sh
+./ops/restart.sh
+./ops/stop.sh
+```
+
+上のコマンドは macOS の参照ローカル環境向けです。Windows WSL2 / Ubuntu 24.04 では [Linux / WSL2 ガイド](docs/oss/linux-wsl.md) に記載された環境とコマンドを使用してください。
+
+## ドキュメント
+
+- [起動と復旧](STARTUP.md)
+- [architecture](docs/architecture.md)
+- [operations](docs/operations.md)
+- [CLI / MCP](docs/CLI-MCP.md)
+- [system requirements](docs/oss/requirements.md)
+- [troubleshooting](docs/oss/troubleshooting.md)
+- [update / uninstall](docs/oss/uninstall-upgrade.md)
+- [GA release notes](docs/release-notes-v1.0.0-ga.md)
 
 ## License
 
-BerthのsourceはMIT Licenseです。依存package、model、container base imageにはそれぞれの
-licenseが適用されます。詳細は [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) を参照してください。
+Berth の source code は MIT License です。依存 package、model、container base image にはそれぞれの license が適用されます。詳細は [Third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
